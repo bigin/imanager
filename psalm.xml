@@ -16,4 +16,13 @@
             <directory name="vendor" />
         </ignoreFiles>
     </projectFiles>
+
+    <issueHandlers>
+        <!--
+            #[\Override] only exists in PHP 8.3+ and we target 8.2 minimum.
+            Adding it everywhere as a noisy no-op buys us nothing the rest of
+            the analysis isn't already doing.
+        -->
+        <MissingOverrideAttribute errorLevel="suppress" />
+    </issueHandlers>
 </psalm>
