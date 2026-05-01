@@ -9,16 +9,16 @@ $autoloadCandidates = [
 ];
 
 foreach ($autoloadCandidates as $autoload) {
-    if (\file_exists($autoload)) {
+    if (file_exists($autoload)) {
         require $autoload;
         break;
     }
 }
 
-if (! \class_exists(\Imanager\Imanager::class)) {
-    \fwrite(\STDERR, "iManager autoload not found. Run `composer install` first.\n");
+if (! class_exists(\Imanager\Imanager::class)) {
+    fwrite(\STDERR, "iManager autoload not found. Run `composer install` first.\n");
     exit(1);
 }
 
 // Phase 15 will plug a Symfony Console Application in here.
-\fwrite(\STDOUT, 'iManager ' . \Imanager\Imanager::VERSION . \PHP_EOL);
+fwrite(\STDOUT, 'iManager ' . \Imanager\Imanager::VERSION . \PHP_EOL);
