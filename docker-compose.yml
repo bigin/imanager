@@ -1,0 +1,16 @@
+services:
+  imanager:
+    build: .
+    image: bigins/imanager-dev:latest
+    container_name: imanager-dev
+    volumes:
+      - .:/app
+      - composer-cache:/root/.composer/cache
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: '1'
+
+volumes:
+  composer-cache:

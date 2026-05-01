@@ -1,0 +1,66 @@
+{
+    "name": "bigins/imanager",
+    "description": "iManager — embeddable SQLite-backed CMF (Content Management Framework) for PHP.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["cmf", "cms", "sqlite", "flat-file", "imanager"],
+    "homepage": "https://scriptor-cms.info",
+    "authors": [
+        {
+            "name": "bigin",
+            "email": "juri.ehret@gmail.com",
+            "homepage": "https://ehret-studio.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-pdo_sqlite": "*",
+        "ext-mbstring": "*",
+        "ext-dom": "*",
+        "ext-json": "*",
+        "ext-gd": "*",
+        "league/container": "^4.2",
+        "symfony/console": "^6.4 || ^7.0",
+        "nikic/php-parser": "^5.0",
+        "erusev/parsedown": "^1.7",
+        "ezyang/htmlpurifier": "^4.17",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^2.0",
+        "vimeo/psalm": "^5.20 || ^6.0",
+        "friendsofphp/php-cs-fixer": "^3.50"
+    },
+    "autoload": {
+        "psr-4": {
+            "Imanager\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Imanager\\Tests\\": "tests/"
+        }
+    },
+    "bin": ["bin/imanager"],
+    "scripts": {
+        "test": "phpunit",
+        "lint": "php-cs-fixer fix --dry-run --diff",
+        "format": "php-cs-fixer fix",
+        "stan": "phpstan analyse",
+        "psalm": "psalm",
+        "ci": [
+            "@lint",
+            "@stan",
+            "@psalm",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {}
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
