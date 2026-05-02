@@ -50,7 +50,7 @@ abstract class ItemRepositoryContract extends TestCase
         $after = time();
 
         self::assertNotNull($saved->id);
-        self::assertSame(['title' => 'Hello'], $saved->data);
+        self::assertSame(['title' => 'Hello'], $saved->data->toArray());
         self::assertGreaterThanOrEqual($before, $saved->created);
         self::assertLessThanOrEqual($after, $saved->created);
     }
@@ -69,7 +69,7 @@ abstract class ItemRepositoryContract extends TestCase
         $found = $this->storage->items()->find($saved->id);
 
         self::assertNotNull($found);
-        self::assertSame($payload, $found->data);
+        self::assertSame($payload, $found->data->toArray());
     }
 
     public function testFindByCategoryReturnsItemsOrderedByPosition(): void

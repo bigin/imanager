@@ -7,10 +7,14 @@ namespace Imanager\Domain;
 use Imanager\Enum\FieldType;
 
 /**
- * Anemic data carrier for a field definition.
+ * A field definition that belongs to a category.
  *
- * The `config` array is intentionally untyped here; the `FieldType` plugin
- * decides the shape (Phase 7). For Phase 3 it round-trips as opaque data.
+ * `categoryId` is the **owning** category — for the field to make sense, that
+ * category must already exist; the constructor enforces `>= 1` accordingly,
+ * the storage layer enforces FK referential integrity.
+ *
+ * The `config` array is intentionally untyped here; the FieldType plugin
+ * decides its shape (Phase 7). For Phase 6 it round-trips as opaque data.
  */
 final readonly class Field
 {
@@ -30,7 +34,23 @@ final readonly class Field
         public array $config = [],
         public int $created = 0,
         public int $updated = 0,
-    ) {}
+    ) {
+        if ($id !== null && $id < 1) {
+            throw new \InvalidArgumentException('Field id, when set, must be >= 1');
+        }
+        if ($categoryId < 1) {
+            throw new \InvalidArgumentException('Field categoryId must be >= 1');
+        }
+        if (trim($name) === '') {
+            throw new \InvalidArgumentException('Field name must not be empty');
+        }
+        if ($position < 0) {
+            throw new \InvalidArgumentException('Field position must be >= 0');
+        }
+        if ($created < 0 || $updated < 0) {
+            throw new \InvalidArgumentException('Field timestamps must be >= 0');
+        }
+    }
 
     public function withId(int $id): self
     {
