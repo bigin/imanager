@@ -277,8 +277,8 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 6 | Domain-Models neu | ✅ done | `phase-6-domain` (PR #6, squashed → main) |
 | 7 | Field-Type-System | ✅ done | 7a (PR #7), 7b (PR #8), 7c (PR #9) — all squashed → main |
 | 8 | Volltextsuche (FTS5) | ✅ done | `phase-8-fts` (PR #10, squashed → main) |
-| 9 | Migration-Tool (1.x → 2.0) | 🟡 in progress | `phase-9-migration` |
-| 10 | HTTP-/Input-Layer | ⬜ todo | `phase-10-http` |
+| 9 | Migration-Tool (1.x → 2.0) | ✅ done | `phase-9-migration` (PR #11, squashed → main) |
+| 10 | HTTP-/Input-Layer | 🟡 in progress | `phase-10-http` |
 | 11 | Templates & Pagination | ⬜ todo | `phase-11-templates` |
 | 12 | SectionCache PSR-16 | ⬜ todo | `phase-12-cache` |
 | 13 | Upload-Modernisierung | ⬜ todo | `phase-13-uploads` |
