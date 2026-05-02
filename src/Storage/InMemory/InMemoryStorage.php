@@ -353,6 +353,146 @@ final class InMemoryStorage implements Storage
         return $count;
     }
 
+    /**
+     * @return list<Item>
+     */
+    public function queryItems(\Imanager\Query\Query $query): array
+    {
+        $matching = $this->filterItems($query);
+        $matching = $this->sortItems($matching, $query->orderBy);
+
+        if ($query->offset > 0) {
+            $matching = \array_slice($matching, $query->offset);
+        }
+        if ($query->limit > 0) {
+            $matching = \array_slice($matching, 0, $query->limit);
+        }
+        return $matching;
+    }
+
+    public function countQueryItems(\Imanager\Query\Query $query): int
+    {
+        return \count($this->filterItems($query));
+    }
+
+    /**
+     * @return list<Item>
+     */
+    private function filterItems(\Imanager\Query\Query $query): array
+    {
+        $out = [];
+        foreach ($this->items as $item) {
+            if ($query->categoryId !== null && $item->categoryId !== $query->categoryId) {
+                continue;
+            }
+            $matches = true;
+            foreach ($query->where as $clause) {
+                if (! self::matchClause($item, $clause)) {
+                    $matches = false;
+                    break;
+                }
+            }
+            if ($matches) {
+                $out[] = $item;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param list<Item>                    $items
+     * @param list<\Imanager\Query\OrderBy> $orderings
+     *
+     * @return list<Item>
+     */
+    private static function sortItems(array $items, array $orderings): array
+    {
+        if ($orderings === []) {
+            usort($items, static fn(Item $a, Item $b): int => $a->position <=> $b->position);
+            return $items;
+        }
+
+        usort($items, static function (Item $a, Item $b) use ($orderings): int {
+            foreach ($orderings as $order) {
+                $av = self::fieldValue($a, $order->field);
+                $bv = self::fieldValue($b, $order->field);
+                $cmp = self::compare($av, $bv);
+                if ($cmp !== 0) {
+                    return $order->direction === \Imanager\Query\Direction::Desc ? -$cmp : $cmp;
+                }
+            }
+            return 0;
+        });
+
+        return $items;
+    }
+
+    private static function matchClause(Item $item, \Imanager\Query\Clause $clause): bool
+    {
+        $value = self::fieldValue($item, $clause->field);
+
+        return match ($clause->op) {
+            \Imanager\Query\Operator::Eq => self::compare($value, $clause->value) === 0,
+            \Imanager\Query\Operator::Neq => self::compare($value, $clause->value) !== 0,
+            \Imanager\Query\Operator::Lt => self::compare($value, $clause->value) < 0,
+            \Imanager\Query\Operator::Lte => self::compare($value, $clause->value) <= 0,
+            \Imanager\Query\Operator::Gt => self::compare($value, $clause->value) > 0,
+            \Imanager\Query\Operator::Gte => self::compare($value, $clause->value) >= 0,
+            \Imanager\Query\Operator::Like => self::likeMatch(
+                $value === null ? '' : (string) $value,
+                (string) $clause->value,
+            ),
+        };
+    }
+
+    private static function fieldValue(Item $item, string $field): mixed
+    {
+        return match ($field) {
+            'id' => $item->id,
+            'category_id', 'categoryId' => $item->categoryId,
+            'name' => $item->name,
+            'label' => $item->label,
+            'position' => $item->position,
+            'active' => $item->active,
+            'created' => $item->created,
+            'updated' => $item->updated,
+            default => $item->data[$field] ?? null,
+        };
+    }
+
+    /**
+     * Loose comparison that lets selector strings like `position>=3` work even
+     * when the value comes in as the string `"3"`. Numeric strings on either
+     * side are compared numerically; everything else falls back to PHP's
+     * spaceship operator.
+     */
+    private static function compare(mixed $a, mixed $b): int
+    {
+        if (is_numeric($a) && is_numeric($b)) {
+            return ((float) $a) <=> ((float) $b);
+        }
+        if ($a === null && $b === null) {
+            return 0;
+        }
+        if ($a === null) {
+            return -1;
+        }
+        if ($b === null) {
+            return 1;
+        }
+        return $a <=> $b;
+    }
+
+    private static function likeMatch(string $haystack, string $pattern): bool
+    {
+        $regex = '/^' . str_replace(
+            ['%', '_'],
+            ['.*', '.'],
+            preg_quote($pattern, '/'),
+        ) . '$/iu';
+        return preg_match($regex, $haystack) === 1;
+    }
+
     public function saveItem(Item $item): Item
     {
         $now = time();

@@ -7,6 +7,7 @@ namespace Imanager\Storage;
 use Imanager\Domain\Item;
 use Imanager\Exception\NotFoundException;
 use Imanager\Exception\StorageException;
+use Imanager\Query\Query;
 
 interface ItemRepository
 {
@@ -16,14 +17,34 @@ interface ItemRepository
      * Paginated list of items in a category.
      *
      * `$limit = 0` means "no limit"; the offset is applied even with no limit.
-     * The richer querying API (filters, sort, search) lands in Phase 5 via
-     * `QueryBuilder`; this method covers the basic listing case.
+     * Convenience wrapper for the common "all items in this category" path —
+     * for filters, sort, and JSON-field predicates use {@see query()}.
      *
      * @return list<Item>
      */
     public function findByCategory(int $categoryId, int $offset = 0, int $limit = 0): array;
 
     public function countByCategory(int $categoryId): int;
+
+    /**
+     * Run a {@see Query} and return the matching items.
+     *
+     * The Query AST is the canonical execution surface; both `findByCategory()`
+     * above and the `SelectorParser` string DSL are sugar that produce a
+     * `Query` and call this method.
+     *
+     * @return list<Item>
+     */
+    public function query(Query $query): array;
+
+    /**
+     * Total number of items matching the where-clause portion of `$query`.
+     *
+     * `limit` and `offset` on the query are ignored — the count reflects the
+     * full result set. Use it together with `query()` to drive
+     * {@see \Imanager\Query\Pagination}.
+     */
+    public function count(Query $query): int;
 
     /**
      * Persist an item. Behavior mirrors {@see CategoryRepository::save()}.

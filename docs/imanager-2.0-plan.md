@@ -272,8 +272,8 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 1 | 1.x-Bug-Tracking (verteilt auf 2-7) | ⬜ todo | – |
 | 2 | Architektur-Foundations | ✅ done | `phase-2-foundations` (PR #1, squashed → main) |
 | 3 | Storage-Abstraktion | ✅ done | `phase-3-storage-iface` (PR #2, squashed → main) |
-| 4 | SQLite-Implementierung | 🟡 in progress | `phase-4-sqlite` |
-| 5 | Query-Builder & Selector-DSL | ⬜ todo | `phase-5-query` |
+| 4 | SQLite-Implementierung | ✅ done | `phase-4-sqlite` (PR #4, squashed → main) |
+| 5 | Query-Builder & Selector-DSL | 🟡 in progress | `phase-5-query` |
 | 6 | Domain-Models neu | ⬜ todo | `phase-6-domain` |
 | 7 | Field-Type-System | ⬜ todo | `phase-7-fields` |
 | 8 | Volltextsuche (FTS5) | ⬜ todo | `phase-8-fts` |
