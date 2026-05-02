@@ -4,5 +4,10 @@ parameters:
         - src
         - tests
         - bin
+    excludePaths:
+        # iManager-1.x var_export() fixtures — they reference classes
+        # (Imanager\Category, Scriptor\Core\Page, …) that don't exist in
+        # this repo by design; the V1FileParser reads them as data, not code.
+        - tests/Fixtures/v1
     tmpDir: .phpstan.cache
     treatPhpDocTypesAsCertain: false

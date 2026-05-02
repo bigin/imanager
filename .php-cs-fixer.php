@@ -7,6 +7,10 @@ $finder = PhpCsFixer\Finder::create()
         __DIR__ . '/src',
         __DIR__ . '/tests',
     ])
+    // Migration fixtures are deliberately formatted to match what
+    // iManager 1.x's `var_export()` actually emits (long-array syntax,
+    // no strict_types, var_export-style spacing). Don't reformat them.
+    ->notPath('Fixtures/v1')
     ->append([__DIR__ . '/bin/imanager']);
 
 return (new PhpCsFixer\Config())
