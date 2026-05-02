@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Imanager\Storage\InMemory;
 
 use Imanager\Domain\Item;
+use Imanager\Query\Query;
 use Imanager\Storage\ItemRepository;
 
 final readonly class InMemoryItemRepository implements ItemRepository
@@ -24,6 +25,16 @@ final readonly class InMemoryItemRepository implements ItemRepository
     public function countByCategory(int $categoryId): int
     {
         return $this->storage->countItemsByCategory($categoryId);
+    }
+
+    public function query(Query $query): array
+    {
+        return $this->storage->queryItems($query);
+    }
+
+    public function count(Query $query): int
+    {
+        return $this->storage->countQueryItems($query);
     }
 
     public function save(Item $item): Item

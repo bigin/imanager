@@ -7,10 +7,31 @@ namespace Imanager\Storage\Sqlite;
 use Imanager\Domain\Item;
 use Imanager\Exception\NotFoundException;
 use Imanager\Exception\StorageException;
+use Imanager\Query\Clause;
+use Imanager\Query\Direction;
+use Imanager\Query\Query;
 use Imanager\Storage\ItemRepository;
 
 final readonly class SqliteItemRepository implements ItemRepository
 {
+    /**
+     * Structural columns on the `items` table. Anything outside this set is
+     * resolved through `json_extract(data, '$.<field>')`.
+     *
+     * @var array<string, string>
+     */
+    private const STRUCTURAL_COLUMNS = [
+        'id' => 'id',
+        'category_id' => 'category_id',
+        'categoryId' => 'category_id',
+        'name' => 'name',
+        'label' => 'label',
+        'position' => 'position',
+        'active' => 'active',
+        'created' => 'created',
+        'updated' => 'updated',
+    ];
+
     public function __construct(private \PDO $connection) {}
 
     public function find(int $id): ?Item
@@ -142,6 +163,133 @@ final readonly class SqliteItemRepository implements ItemRepository
         $stmt->execute([':id' => $id]);
         if ($stmt->rowCount() === 0) {
             throw NotFoundException::item(0, $id);
+        }
+    }
+
+    public function query(Query $query): array
+    {
+        [$where, $params] = $this->buildWhere($query);
+        $orderBy = $this->buildOrderBy($query);
+
+        $sql = 'SELECT * FROM items' . $where . $orderBy;
+
+        if ($query->limit > 0) {
+            $sql .= ' LIMIT :__limit OFFSET :__offset';
+            $params[':__limit'] = $query->limit;
+            $params[':__offset'] = $query->offset;
+        } elseif ($query->offset > 0) {
+            $sql .= ' LIMIT -1 OFFSET :__offset';
+            $params[':__offset'] = $query->offset;
+        }
+
+        $stmt = $this->connection->prepare($sql);
+        $this->bindAll($stmt, $params);
+        $stmt->execute();
+
+        $out = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $out[] = self::hydrate($row);
+        }
+        return $out;
+    }
+
+    public function count(Query $query): int
+    {
+        [$where, $params] = $this->buildWhere($query);
+
+        $stmt = $this->connection->prepare('SELECT COUNT(*) FROM items' . $where);
+        $this->bindAll($stmt, $params);
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function buildWhere(Query $query): array
+    {
+        $fragments = [];
+        $params = [];
+        $idx = 0;
+
+        if ($query->categoryId !== null) {
+            $fragments[] = 'category_id = :__cat';
+            $params[':__cat'] = $query->categoryId;
+        }
+
+        foreach ($query->where as $clause) {
+            $placeholder = ':v' . $idx++;
+            $fragments[] = self::clauseSql($clause, $placeholder);
+            $params[$placeholder] = self::clauseValue($clause);
+        }
+
+        if ($fragments === []) {
+            return ['', $params];
+        }
+        return [' WHERE ' . implode(' AND ', $fragments), $params];
+    }
+
+    private function buildOrderBy(Query $query): string
+    {
+        if ($query->orderBy === []) {
+            return ' ORDER BY position, id';
+        }
+        $parts = [];
+        foreach ($query->orderBy as $order) {
+            $parts[] = self::columnExpression($order->field)
+                . ($order->direction === Direction::Desc ? ' DESC' : ' ASC');
+        }
+        return ' ORDER BY ' . implode(', ', $parts);
+    }
+
+    private static function clauseSql(Clause $clause, string $placeholder): string
+    {
+        return self::columnExpression($clause->field)
+            . ' ' . $clause->op->value
+            . ' ' . $placeholder;
+    }
+
+    /**
+     * Resolve a query field name to either a structural column or a
+     * `json_extract(data, '$.<field>')` expression. JSON-extracted values are
+     * `NULL` when the key is missing, which matches the InMemory backend.
+     */
+    private static function columnExpression(string $field): string
+    {
+        if (isset(self::STRUCTURAL_COLUMNS[$field])) {
+            return self::STRUCTURAL_COLUMNS[$field];
+        }
+        // The field name is sanitized by the upstream FieldType pipeline
+        // (Phase 7); single-quote escaping here is defense-in-depth against
+        // any caller that bypasses it.
+        $escaped = str_replace("'", "''", $field);
+        return "json_extract(data, '$." . $escaped . "')";
+    }
+
+    private static function clauseValue(Clause $clause): mixed
+    {
+        $v = $clause->value;
+        if (\is_bool($v)) {
+            return $v ? 1 : 0;
+        }
+        return $v;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private function bindAll(\PDOStatement $stmt, array $params): void
+    {
+        foreach ($params as $key => $value) {
+            if (\is_int($value)) {
+                $stmt->bindValue($key, $value, \PDO::PARAM_INT);
+            } elseif (\is_bool($value)) {
+                $stmt->bindValue($key, $value, \PDO::PARAM_BOOL);
+            } elseif ($value === null) {
+                $stmt->bindValue($key, null, \PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue($key, (string) $value, \PDO::PARAM_STR);
+            }
         }
     }
 
