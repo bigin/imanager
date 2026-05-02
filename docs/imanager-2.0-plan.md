@@ -275,7 +275,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 4 | SQLite-Implementierung | ✅ done | `phase-4-sqlite` (PR #4, squashed → main) |
 | 5 | Query-Builder & Selector-DSL | ✅ done | `phase-5-query` (PR #5, squashed → main) |
 | 6 | Domain-Models neu | ✅ done | `phase-6-domain` (PR #6, squashed → main) |
-| 7 | Field-Type-System | 🟡 in progress (7b) | 7a ✅ (PR #7), 7b `phase-7b-registry`, 7c `phase-7c-types` |
+| 7 | Field-Type-System | 🟡 in progress (7c) | 7a ✅ (PR #7), 7b ✅ (PR #8), 7c `phase-7c-types` |
 | 8 | Volltextsuche (FTS5) | ⬜ todo | `phase-8-fts` |
 | 9 | Migration-Tool (1.x → 2.0) | ⬜ todo | `phase-9-migration` |
 | 10 | HTTP-/Input-Layer | ⬜ todo | `phase-10-http` |
