@@ -281,9 +281,9 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 10 | HTTP-/Input-Layer | ✅ done | `phase-10-http` (PR #12, squashed → main) |
 | 11 | Templates & Pagination | ✅ done | `phase-11-templates` (PR #13, squashed → main) |
 | 12 | SectionCache PSR-16 | ✅ done | `phase-12-cache` (PR #14, squashed → main) |
-| 13 | Upload-Modernisierung | 🟡 in progress | `phase-13-uploads` |
-| 14 | Admin/Editor-Anpassung | ⬜ todo | `phase-14-admin` |
-| 15 | CLI-Werkzeug | ⬜ todo | `phase-15-cli` |
+| 13 | Upload-Modernisierung | ✅ done | `phase-13-uploads` (PR #15, squashed → main) |
+| 15 | CLI-Werkzeug *(vorgezogen vor 14)* | ⬜ todo | `phase-15-cli` |
+| 14 | Scriptor-Integration *(siehe [Detail-Plan](./imanager-2.0-phase-14-plan.md))* | ⬜ todo | mehrere PRs in **Scriptor**-Repo, Branch `imanager-2.0` |
 | 16 | Doku & Examples | ⬜ todo | `phase-16-docs` |
 | 17 | 2.0-Release | ⬜ todo | `release/2.0.0` |
 
@@ -841,8 +841,15 @@ Benchmarks werden in CI als Smoke-Test mitgefahren (kein Hard-Fail, aber Trend-M
 
 ## 12. Was als Nächstes ansteht
 
-1. **Phase 0 (Infrastruktur)**: Composer, Tools, CI, Docker, `2.0-dev`-Branch.
-2. Anschließend **Phase 2 (Foundations)** — Exception-Hierarchie, Container,
-   Config, Enums.
-3. 1.x-Bugs werden während der jeweiligen Phasen mit-gefixt (siehe Phase-1-Tabelle).
+Phasen 0–13 sind abgeschlossen (siehe Status-Tabelle in §7).
+
+1. **Phase 15 (CLI-Werkzeug)** — vorgezogen vor Phase 14, damit das
+   Migrations-Tool fertig ist, bevor wir Scriptor-Daten überführen.
+2. **Migrations-Realtest** auf einer Kopie der Scriptor-Bestandsdaten,
+   dann auf den echten Daten.
+3. **Phase 14 (Scriptor-Integration)** — eigenständiger Detail-Plan in
+   [`imanager-2.0-phase-14-plan.md`](./imanager-2.0-phase-14-plan.md).
+   Mehrere Sub-Phasen 14a–14f, jeweils als PR im **Scriptor**-Repo
+   gegen einen neuen long-lived Branch `imanager-2.0`.
+4. **Phase 16** (Doku) und **Phase 17** (2.0.0-Release) schließen ab.
 
