@@ -25,7 +25,8 @@
         "nikic/php-parser": "^5.0",
         "erusev/parsedown": "^1.7",
         "ezyang/htmlpurifier": "^4.17",
-        "psr/log": "^3.0"
+        "psr/log": "^3.0",
+        "psr/simple-cache": "^3.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",

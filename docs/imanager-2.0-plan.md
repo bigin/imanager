@@ -279,8 +279,8 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 8 | Volltextsuche (FTS5) | ✅ done | `phase-8-fts` (PR #10, squashed → main) |
 | 9 | Migration-Tool (1.x → 2.0) | ✅ done | `phase-9-migration` (PR #11, squashed → main) |
 | 10 | HTTP-/Input-Layer | ✅ done | `phase-10-http` (PR #12, squashed → main) |
-| 11 | Templates & Pagination | 🟡 in progress | `phase-11-templates` |
-| 12 | SectionCache PSR-16 | ⬜ todo | `phase-12-cache` |
+| 11 | Templates & Pagination | ✅ done | `phase-11-templates` (PR #13, squashed → main) |
+| 12 | SectionCache PSR-16 | 🟡 in progress | `phase-12-cache` |
 | 13 | Upload-Modernisierung | ⬜ todo | `phase-13-uploads` |
 | 14 | Admin/Editor-Anpassung | ⬜ todo | `phase-14-admin` |
 | 15 | CLI-Werkzeug | ⬜ todo | `phase-15-cli` |
