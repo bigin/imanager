@@ -14,6 +14,13 @@
         <directory name="tests" />
         <ignoreFiles>
             <directory name="vendor" />
+            <!--
+                iManager-1.x var_export() fixtures reference classes
+                (Imanager\Category, Scriptor\Core\Page, ...) that don't
+                exist in this repo by design; the V1FileParser reads them
+                as data, not code.
+            -->
+            <directory name="tests/Fixtures/v1" />
         </ignoreFiles>
     </projectFiles>
 

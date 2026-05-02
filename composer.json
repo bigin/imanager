@@ -48,7 +48,7 @@
         "test": "phpunit",
         "lint": "php-cs-fixer fix --dry-run --diff",
         "format": "php-cs-fixer fix",
-        "stan": "phpstan analyse",
+        "stan": "phpstan analyse --memory-limit=512M",
         "psalm": "psalm",
         "ci": [
             "@lint",
