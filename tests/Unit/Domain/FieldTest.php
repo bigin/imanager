@@ -64,4 +64,32 @@ final class FieldTest extends TestCase
         self::assertSame('title', $assigned->name);
         self::assertSame(FieldType::Text, $assigned->type);
     }
+
+    public function testRejectsZeroOrNegativeIdWhenSet(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Field id');
+        new Field(0, 1, 'title', null, FieldType::Text);
+    }
+
+    public function testRejectsZeroOrNegativeCategoryId(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Field categoryId');
+        new Field(null, 0, 'title', null, FieldType::Text);
+    }
+
+    public function testRejectsEmptyName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Field name');
+        new Field(null, 1, '   ', null, FieldType::Text);
+    }
+
+    public function testRejectsNegativePosition(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('position');
+        new Field(null, 1, 'title', null, FieldType::Text, position: -1);
+    }
 }

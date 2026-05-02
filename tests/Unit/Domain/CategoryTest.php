@@ -54,4 +54,39 @@ final class CategoryTest extends TestCase
         self::assertSame(1700000000, $assigned->created);
         self::assertSame(1700000100, $assigned->updated);
     }
+
+    public function testRejectsZeroOrNegativeIdWhenSet(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Category id');
+        new Category(0, 'Blog', 'blog');
+    }
+
+    public function testRejectsEmptyName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Category name');
+        new Category(null, '   ', 'blog');
+    }
+
+    public function testRejectsEmptySlug(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Category slug');
+        new Category(null, 'Blog', '');
+    }
+
+    public function testRejectsNegativePosition(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('position');
+        new Category(null, 'Blog', 'blog', -1);
+    }
+
+    public function testRejectsNegativeTimestamps(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('timestamps');
+        new Category(null, 'Blog', 'blog', 0, -1);
+    }
 }

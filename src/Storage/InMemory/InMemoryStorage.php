@@ -456,7 +456,7 @@ final class InMemoryStorage implements Storage
             'active' => $item->active,
             'created' => $item->created,
             'updated' => $item->updated,
-            default => $item->data[$field] ?? null,
+            default => $item->data->get($field),
         };
     }
 

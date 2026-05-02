@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Imanager\Domain;
 
 /**
- * Anemic data carrier for a category.
+ * A content category — the top-level grouping that owns fields and items.
  *
- * Phase 3 keeps this intentionally lightweight; Phase 6 will enrich it with
- * domain-level invariants, factory methods, and `CategoryId` value-object
- * wrappers (if we decide to introduce them).
+ * `Category` is a value object. Constructor invariants enforce structural
+ * sanity (non-empty name and slug, non-negative position, monotonically
+ * non-negative timestamps); business rules like uniqueness or slug format
+ * live at the storage / Sanitizer boundary, not here.
  */
 final readonly class Category
 {
@@ -20,7 +21,23 @@ final readonly class Category
         public int $position = 0,
         public int $created = 0,
         public int $updated = 0,
-    ) {}
+    ) {
+        if ($id !== null && $id < 1) {
+            throw new \InvalidArgumentException('Category id, when set, must be >= 1');
+        }
+        if (trim($name) === '') {
+            throw new \InvalidArgumentException('Category name must not be empty');
+        }
+        if (trim($slug) === '') {
+            throw new \InvalidArgumentException('Category slug must not be empty');
+        }
+        if ($position < 0) {
+            throw new \InvalidArgumentException('Category position must be >= 0');
+        }
+        if ($created < 0 || $updated < 0) {
+            throw new \InvalidArgumentException('Category timestamps must be >= 0');
+        }
+    }
 
     public function withId(int $id): self
     {

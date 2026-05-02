@@ -80,7 +80,7 @@ final readonly class SqliteItemRepository implements ItemRepository
     {
         $now = time();
         $created = $item->created !== 0 ? $item->created : $now;
-        $dataJson = self::encodeData($item->data);
+        $dataJson = self::encodeData($item->data->toArray());
 
         if ($item->id === null) {
             try {
