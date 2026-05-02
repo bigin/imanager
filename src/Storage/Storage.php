@@ -25,6 +25,8 @@ interface Storage
 
     public function items(): ItemRepository;
 
+    public function files(): FileRepository;
+
     /**
      * Run `$work` inside a transaction. The callback's return value becomes
      * the method's return value. Any exception thrown inside `$work` aborts

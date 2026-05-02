@@ -36,9 +36,13 @@ final class InMemoryStorage implements Storage
     /** @var array<int, Item> */
     private array $items = [];
 
+    /** @var array<int, \Imanager\Domain\File> */
+    private array $files = [];
+
     private int $nextCategoryId = 1;
     private int $nextFieldId = 1;
     private int $nextItemId = 1;
+    private int $nextFileId = 1;
 
     public function categories(): CategoryRepository
     {
@@ -55,15 +59,22 @@ final class InMemoryStorage implements Storage
         return new InMemoryItemRepository($this);
     }
 
+    public function files(): \Imanager\Storage\FileRepository
+    {
+        return new InMemoryFileRepository($this);
+    }
+
     public function transactional(callable $work): mixed
     {
         $snapshot = [
             'categories' => $this->categories,
             'fields' => $this->fields,
             'items' => $this->items,
+            'files' => $this->files,
             'nextCategoryId' => $this->nextCategoryId,
             'nextFieldId' => $this->nextFieldId,
             'nextItemId' => $this->nextItemId,
+            'nextFileId' => $this->nextFileId,
         ];
 
         try {
@@ -72,9 +83,11 @@ final class InMemoryStorage implements Storage
             $this->categories = $snapshot['categories'];
             $this->fields = $snapshot['fields'];
             $this->items = $snapshot['items'];
+            $this->files = $snapshot['files'];
             $this->nextCategoryId = $snapshot['nextCategoryId'];
             $this->nextFieldId = $snapshot['nextFieldId'];
             $this->nextItemId = $snapshot['nextItemId'];
+            $this->nextFileId = $snapshot['nextFileId'];
             throw $e;
         }
     }
@@ -153,6 +166,14 @@ final class InMemoryStorage implements Storage
         }
         unset($this->categories[$id]);
 
+        // Build the doomed-item-id set so we can cascade files in lockstep.
+        $orphanItemIds = [];
+        foreach ($this->items as $itemId => $item) {
+            if ($item->categoryId === $id) {
+                $orphanItemIds[$itemId] = true;
+            }
+        }
+
         $keptFields = [];
         foreach ($this->fields as $fieldId => $field) {
             if ($field->categoryId !== $id) {
@@ -168,6 +189,15 @@ final class InMemoryStorage implements Storage
             }
         }
         $this->items = $keptItems;
+
+        // Files cascade-die with their owning items.
+        $keptFiles = [];
+        foreach ($this->files as $fileId => $file) {
+            if (! isset($orphanItemIds[$file->itemId])) {
+                $keptFiles[$fileId] = $file;
+            }
+        }
+        $this->files = $keptFiles;
     }
 
     private function assertCategoryNameUnique(string $name, ?int $exceptId): void
@@ -294,6 +324,16 @@ final class InMemoryStorage implements Storage
             throw NotFoundException::field(0, $id);
         }
         unset($this->fields[$id]);
+
+        // Files referencing this field cascade away (FK ON DELETE CASCADE
+        // in SQLite; in-memory we filter manually).
+        $keptFiles = [];
+        foreach ($this->files as $fileId => $file) {
+            if ($file->fieldId !== $id) {
+                $keptFiles[$fileId] = $file;
+            }
+        }
+        $this->files = $keptFiles;
     }
 
     private function assertFieldNameUniqueInCategory(int $categoryId, string $name, ?int $exceptId): void
@@ -548,5 +588,120 @@ final class InMemoryStorage implements Storage
             throw NotFoundException::item(0, $id);
         }
         unset($this->items[$id]);
+
+        $keptFiles = [];
+        foreach ($this->files as $fileId => $file) {
+            if ($file->itemId !== $id) {
+                $keptFiles[$fileId] = $file;
+            }
+        }
+        $this->files = $keptFiles;
+    }
+
+    // ────────────────────────────── Files ────────────────────────────────
+
+    public function getFile(int $id): ?\Imanager\Domain\File
+    {
+        return $this->files[$id] ?? null;
+    }
+
+    /**
+     * @return list<\Imanager\Domain\File>
+     */
+    public function filesByItem(int $itemId): array
+    {
+        $out = [];
+        foreach ($this->files as $f) {
+            if ($f->itemId === $itemId) {
+                $out[] = $f;
+            }
+        }
+        usort(
+            $out,
+            static fn(\Imanager\Domain\File $a, \Imanager\Domain\File $b): int
+                => $a->position <=> $b->position ?: ($a->id ?? 0) <=> ($b->id ?? 0),
+        );
+        return $out;
+    }
+
+    /**
+     * @return list<\Imanager\Domain\File>
+     */
+    public function filesByItemAndField(int $itemId, int $fieldId): array
+    {
+        $out = [];
+        foreach ($this->filesByItem($itemId) as $f) {
+            if ($f->fieldId === $fieldId) {
+                $out[] = $f;
+            }
+        }
+        return $out;
+    }
+
+    public function saveFile(\Imanager\Domain\File $file): \Imanager\Domain\File
+    {
+        $now = time();
+
+        if (! isset($this->items[$file->itemId])) {
+            throw new \Imanager\Exception\StorageException(\sprintf(
+                'Cannot save file: item %d does not exist',
+                $file->itemId,
+            ));
+        }
+        if (! isset($this->fields[$file->fieldId])) {
+            throw new \Imanager\Exception\StorageException(\sprintf(
+                'Cannot save file: field %d does not exist',
+                $file->fieldId,
+            ));
+        }
+
+        if ($file->id === null) {
+            $id = $this->nextFileId++;
+            $stored = new \Imanager\Domain\File(
+                id: $id,
+                itemId: $file->itemId,
+                fieldId: $file->fieldId,
+                name: $file->name,
+                path: $file->path,
+                mime: $file->mime,
+                size: $file->size,
+                width: $file->width,
+                height: $file->height,
+                position: $file->position,
+                created: $file->created !== 0 ? $file->created : $now,
+            );
+            $this->files[$id] = $stored;
+            return $stored;
+        }
+
+        if (! isset($this->files[$file->id])) {
+            throw NotFoundException::item(0, $file->id);
+        }
+
+        $id = $file->id;
+        $previous = $this->files[$id];
+        $stored = new \Imanager\Domain\File(
+            id: $id,
+            itemId: $file->itemId,
+            fieldId: $file->fieldId,
+            name: $file->name,
+            path: $file->path,
+            mime: $file->mime,
+            size: $file->size,
+            width: $file->width,
+            height: $file->height,
+            position: $file->position,
+            created: $file->created !== 0 ? $file->created : $previous->created,
+        );
+        $this->files[$id] = $stored;
+        return $stored;
+    }
+
+    public function deleteFile(int $id): void
+    {
+        if (! isset($this->files[$id])) {
+            throw NotFoundException::item(0, $id);
+        }
+        unset($this->files[$id]);
     }
 }
