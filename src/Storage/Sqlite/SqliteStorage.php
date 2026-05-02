@@ -6,6 +6,7 @@ namespace Imanager\Storage\Sqlite;
 
 use Imanager\Storage\CategoryRepository;
 use Imanager\Storage\FieldRepository;
+use Imanager\Storage\FileRepository;
 use Imanager\Storage\ItemRepository;
 use Imanager\Storage\Storage;
 
@@ -43,6 +44,11 @@ final class SqliteStorage implements Storage
     public function items(): ItemRepository
     {
         return new SqliteItemRepository($this->connection);
+    }
+
+    public function files(): FileRepository
+    {
+        return new SqliteFileRepository($this->connection);
     }
 
     public function transactional(callable $work): mixed
