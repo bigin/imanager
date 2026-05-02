@@ -105,8 +105,11 @@ final readonly class SqliteItemRepository implements ItemRepository
                 throw self::translatePdoException($e);
             }
 
+            $newId = (int) $this->connection->lastInsertId();
+            $this->syncFts($newId, $item->name, $item->label, $item->data->toArray());
+
             return new Item(
-                id: (int) $this->connection->lastInsertId(),
+                id: $newId,
                 categoryId: $item->categoryId,
                 name: $item->name,
                 label: $item->label,
@@ -144,6 +147,8 @@ final readonly class SqliteItemRepository implements ItemRepository
             throw self::translatePdoException($e);
         }
 
+        $this->syncFts($item->id, $item->name, $item->label, $item->data->toArray());
+
         return new Item(
             id: $item->id,
             categoryId: $item->categoryId,
@@ -164,6 +169,49 @@ final readonly class SqliteItemRepository implements ItemRepository
         if ($stmt->rowCount() === 0) {
             throw NotFoundException::item(0, $id);
         }
+        $ftsDelete = $this->connection->prepare('DELETE FROM items_fts WHERE rowid = :id');
+        $ftsDelete->execute([':id' => $id]);
+    }
+
+    /**
+     * Insert-or-replace the FTS index row for `$id`. Body is a flattened
+     * concatenation of all string / numeric values in `$data` so search
+     * matches across every dynamic field — see the `0002_fts.sql` migration
+     * comment for the rationale (hybrid index, post-Phase-8 we'll respect
+     * the per-field `searchable` flag once a use case asks for opt-out).
+     *
+     * @param array<string, mixed> $data
+     */
+    private function syncFts(int $id, ?string $name, ?string $label, array $data): void
+    {
+        $body = ($name ?? '') . ' ' . ($label ?? '') . ' ' . self::flattenForSearch($data);
+
+        $delete = $this->connection->prepare('DELETE FROM items_fts WHERE rowid = :id');
+        $delete->execute([':id' => $id]);
+
+        $insert = $this->connection->prepare(
+            'INSERT INTO items_fts (rowid, name, label, body) VALUES (:id, :name, :label, :body)',
+        );
+        $insert->execute([
+            ':id' => $id,
+            ':name' => $name ?? '',
+            ':label' => $label ?? '',
+            ':body' => $body,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function flattenForSearch(array $data): string
+    {
+        $parts = [];
+        array_walk_recursive($data, static function (mixed $value) use (&$parts): void {
+            if (\is_string($value) || \is_int($value) || \is_float($value)) {
+                $parts[] = (string) $value;
+            }
+        });
+        return implode(' ', $parts);
     }
 
     public function query(Query $query): array
