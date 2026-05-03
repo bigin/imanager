@@ -5,15 +5,27 @@ declare(strict_types=1);
 namespace Imanager\Storage\Sqlite;
 
 use Imanager\Domain\Category;
+use Imanager\Domain\Event\CategoryCreated;
+use Imanager\Domain\Event\CategoryDeleted;
+use Imanager\Domain\Event\CategoryUpdated;
 use Imanager\Enum\InputErrorCode;
+use Imanager\Events\NullEventDispatcher;
 use Imanager\Exception\NotFoundException;
 use Imanager\Exception\StorageException;
 use Imanager\Exception\ValidationException;
 use Imanager\Storage\CategoryRepository;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
-final readonly class SqliteCategoryRepository implements CategoryRepository
+final class SqliteCategoryRepository implements CategoryRepository
 {
-    public function __construct(private \PDO $connection) {}
+    private readonly EventDispatcherInterface $events;
+
+    public function __construct(
+        private readonly \PDO $connection,
+        ?EventDispatcherInterface $events = null,
+    ) {
+        $this->events = $events ?? new NullEventDispatcher();
+    }
 
     public function find(int $id): ?Category
     {
@@ -67,7 +79,7 @@ final readonly class SqliteCategoryRepository implements CategoryRepository
             }
 
             $id = (int) $this->connection->lastInsertId();
-            return new Category(
+            $createdCat = new Category(
                 id: $id,
                 name: $category->name,
                 slug: $category->slug,
@@ -75,6 +87,8 @@ final readonly class SqliteCategoryRepository implements CategoryRepository
                 created: $created,
                 updated: $now,
             );
+            $this->events->dispatch(new CategoryCreated($createdCat, $now));
+            return $createdCat;
         }
 
         $existing = $this->find($category->id);
@@ -99,7 +113,7 @@ final readonly class SqliteCategoryRepository implements CategoryRepository
             throw self::translatePdoException($e);
         }
 
-        return new Category(
+        $updated = new Category(
             id: $category->id,
             name: $category->name,
             slug: $category->slug,
@@ -107,15 +121,22 @@ final readonly class SqliteCategoryRepository implements CategoryRepository
             created: $existing->created,
             updated: $now,
         );
+        $this->events->dispatch(new CategoryUpdated($existing, $updated, $now));
+        return $updated;
     }
 
     public function delete(int $id): void
     {
-        $stmt = $this->connection->prepare('DELETE FROM categories WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        if ($stmt->rowCount() === 0) {
+        $existing = $this->find($id);
+        if ($existing === null) {
             throw NotFoundException::category($id);
         }
+        // Fire before the FK cascade flattens fields/items so listeners
+        // can still walk children if they need to.
+        $this->events->dispatch(new CategoryDeleted($id, time()));
+
+        $stmt = $this->connection->prepare('DELETE FROM categories WHERE id = :id');
+        $stmt->execute([':id' => $id]);
         // FK ON DELETE CASCADE removes fields and items.
     }
 

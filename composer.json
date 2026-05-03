@@ -26,6 +26,7 @@
         "erusev/parsedown": "^1.7",
         "ezyang/htmlpurifier": "^4.17",
         "intervention/image": "^3.0",
+        "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
         "psr/simple-cache": "^3.0"
     },

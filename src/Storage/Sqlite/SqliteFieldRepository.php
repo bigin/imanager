@@ -4,20 +4,30 @@ declare(strict_types=1);
 
 namespace Imanager\Storage\Sqlite;
 
+use Imanager\Domain\Event\FieldCreated;
+use Imanager\Domain\Event\FieldDeleted;
+use Imanager\Domain\Event\FieldUpdated;
 use Imanager\Domain\Field;
 use Imanager\Enum\FieldType;
 use Imanager\Enum\InputErrorCode;
+use Imanager\Events\NullEventDispatcher;
 use Imanager\Exception\NotFoundException;
 use Imanager\Exception\StorageException;
 use Imanager\Exception\ValidationException;
 use Imanager\Storage\FieldRepository;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
-final readonly class SqliteFieldRepository implements FieldRepository
+final class SqliteFieldRepository implements FieldRepository
 {
+    private readonly EventDispatcherInterface $events;
+
     public function __construct(
-        private \PDO $connection,
-        private IndexedFields $indexedFields,
-    ) {}
+        private readonly \PDO $connection,
+        private readonly IndexedFields $indexedFields,
+        ?EventDispatcherInterface $events = null,
+    ) {
+        $this->events = $events ?? new NullEventDispatcher();
+    }
 
     public function find(int $id): ?Field
     {
@@ -88,7 +98,7 @@ final readonly class SqliteFieldRepository implements FieldRepository
                 $this->indexedFields->create($field->categoryId, $field->name, $field->type);
             }
 
-            return new Field(
+            $createdField = new Field(
                 id: (int) $this->connection->lastInsertId(),
                 categoryId: $field->categoryId,
                 name: $field->name,
@@ -102,6 +112,8 @@ final readonly class SqliteFieldRepository implements FieldRepository
                 created: $created,
                 updated: $now,
             );
+            $this->events->dispatch(new FieldCreated($createdField, $now));
+            return $createdField;
         }
 
         $previous = $this->find($field->id);
@@ -135,7 +147,7 @@ final readonly class SqliteFieldRepository implements FieldRepository
 
         $this->reconcileGeneratedColumn($previous, $field);
 
-        return new Field(
+        $updated = new Field(
             id: $field->id,
             categoryId: $field->categoryId,
             name: $field->name,
@@ -149,6 +161,8 @@ final readonly class SqliteFieldRepository implements FieldRepository
             created: $previous->created,
             updated: $now,
         );
+        $this->events->dispatch(new FieldUpdated($previous, $updated, $now));
+        return $updated;
     }
 
     public function delete(int $id): void
@@ -157,6 +171,8 @@ final readonly class SqliteFieldRepository implements FieldRepository
         if ($existing === null) {
             throw NotFoundException::field(0, $id);
         }
+
+        $this->events->dispatch(new FieldDeleted($id, $existing->categoryId, $existing->name, time()));
 
         $stmt = $this->connection->prepare('DELETE FROM fields WHERE id = :id');
         $stmt->execute([':id' => $id]);
