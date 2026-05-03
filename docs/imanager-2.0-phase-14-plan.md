@@ -56,7 +56,7 @@ Scriptor 2.0 läuft vollständig auf iManager 2.0:
 | | Status |
 |---|---|
 | Phase 0–13 in iManager abgeschlossen | ✅ aktuell |
-| Phase 15 (CLI) in iManager fertig | ⬜ **Phase 15 wird vor 14 gezogen** |
+| Phase 15 (CLI) in iManager fertig | ✅ done (PR #17 merged 2026-05-03) |
 | Backup der Scriptor-`data/`-Verzeichnisse | ⬜ vor erstem `migrate` |
 | Migration-Dry-Run auf Daten-Kopie | ⬜ |
 | Migration-Verifikation per SQLite-CLI / Smoke-Read | ⬜ |
