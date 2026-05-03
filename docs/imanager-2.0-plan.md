@@ -283,7 +283,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 12 | SectionCache PSR-16 | ✅ done | `phase-12-cache` (PR #14, squashed → main) |
 | 13 | Upload-Modernisierung | ✅ done | `phase-13-uploads` (PR #15, squashed → main) |
 | 15 | CLI-Werkzeug *(vorgezogen vor 14)* | ✅ done | `phase-15-cli` (PR #17, squashed → main) |
-| 14 | Scriptor-Integration *(siehe [Detail-Plan](./imanager-2.0-phase-14-plan.md))* | 🟡 in progress | mehrere PRs in **Scriptor**-Repo, Branch `imanager-2.0` |
+| 14 | Scriptor-Integration *(siehe [Detail-Plan](./imanager-2.0-phase-14-plan.md))* | ✅ done | mehrere PRs in **Scriptor**-Repo, Branch `imanager-2.0` (cutover offen) |
 | 16 | Doku & Examples | ⬜ todo | `phase-16-docs` |
 | 17 | 2.0-Release | ⬜ todo | `release/2.0.0` |
 
