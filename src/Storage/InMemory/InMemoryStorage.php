@@ -669,6 +669,7 @@ final class InMemoryStorage implements Storage
                 height: $file->height,
                 position: $file->position,
                 created: $file->created !== 0 ? $file->created : $now,
+                title: $file->title,
             );
             $this->files[$id] = $stored;
             return $stored;
@@ -692,6 +693,7 @@ final class InMemoryStorage implements Storage
             height: $file->height,
             position: $file->position,
             created: $file->created !== 0 ? $file->created : $previous->created,
+            title: $file->title,
         );
         $this->files[$id] = $stored;
         return $stored;

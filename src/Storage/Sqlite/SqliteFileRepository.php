@@ -57,10 +57,10 @@ final readonly class SqliteFileRepository implements FileRepository
                 $stmt = $this->connection->prepare(
                     'INSERT INTO files (
                         item_id, field_id, name, path, mime, size,
-                        width, height, position, created
+                        width, height, position, created, title
                      ) VALUES (
                         :iid, :fid, :name, :path, :mime, :size,
-                        :w, :h, :pos, :created
+                        :w, :h, :pos, :created, :title
                      )',
                 );
                 $stmt->execute([
@@ -74,6 +74,7 @@ final readonly class SqliteFileRepository implements FileRepository
                     ':h' => $file->height,
                     ':pos' => $file->position,
                     ':created' => $created,
+                    ':title' => $file->title,
                 ]);
             } catch (\PDOException $e) {
                 throw self::translatePdoException($e);
@@ -91,6 +92,7 @@ final readonly class SqliteFileRepository implements FileRepository
                 height: $file->height,
                 position: $file->position,
                 created: $created,
+                title: $file->title,
             );
         }
 
@@ -104,7 +106,7 @@ final readonly class SqliteFileRepository implements FileRepository
                 'UPDATE files SET
                     item_id = :iid, field_id = :fid, name = :name, path = :path,
                     mime = :mime, size = :size, width = :w, height = :h,
-                    position = :pos
+                    position = :pos, title = :title
                  WHERE id = :id',
             );
             $stmt->execute([
@@ -117,6 +119,7 @@ final readonly class SqliteFileRepository implements FileRepository
                 ':w' => $file->width,
                 ':h' => $file->height,
                 ':pos' => $file->position,
+                ':title' => $file->title,
                 ':id' => $file->id,
             ]);
         } catch (\PDOException $e) {
@@ -135,6 +138,7 @@ final readonly class SqliteFileRepository implements FileRepository
             height: $file->height,
             position: $file->position,
             created: $existing->created,
+            title: $file->title,
         );
     }
 
@@ -164,6 +168,7 @@ final readonly class SqliteFileRepository implements FileRepository
             height: (int) $row['height'],
             position: (int) $row['position'],
             created: (int) $row['created'],
+            title: (string) ($row['title'] ?? ''),
         );
     }
 
