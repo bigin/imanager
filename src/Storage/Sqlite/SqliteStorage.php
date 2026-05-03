@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Imanager\Storage\Sqlite;
 
+use Imanager\Events\NullEventDispatcher;
 use Imanager\Storage\CategoryRepository;
 use Imanager\Storage\FieldRepository;
 use Imanager\Storage\FileRepository;
 use Imanager\Storage\ItemRepository;
 use Imanager\Storage\Storage;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
  * SQLite-backed implementation of {@see Storage}.
@@ -25,25 +27,29 @@ use Imanager\Storage\Storage;
 final class SqliteStorage implements Storage
 {
     private readonly IndexedFields $indexedFields;
+    private readonly EventDispatcherInterface $events;
 
-    public function __construct(private readonly \PDO $connection)
-    {
+    public function __construct(
+        private readonly \PDO $connection,
+        ?EventDispatcherInterface $events = null,
+    ) {
         $this->indexedFields = new IndexedFields($this->connection);
+        $this->events = $events ?? new NullEventDispatcher();
     }
 
     public function categories(): CategoryRepository
     {
-        return new SqliteCategoryRepository($this->connection);
+        return new SqliteCategoryRepository($this->connection, $this->events);
     }
 
     public function fields(): FieldRepository
     {
-        return new SqliteFieldRepository($this->connection, $this->indexedFields);
+        return new SqliteFieldRepository($this->connection, $this->indexedFields, $this->events);
     }
 
     public function items(): ItemRepository
     {
-        return new SqliteItemRepository($this->connection);
+        return new SqliteItemRepository($this->connection, $this->events);
     }
 
     public function files(): FileRepository

@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Imanager\Storage\Sqlite;
 
+use Imanager\Domain\Event\ItemCreated;
+use Imanager\Domain\Event\ItemDeleted;
+use Imanager\Domain\Event\ItemUpdated;
 use Imanager\Domain\Item;
+use Imanager\Events\NullEventDispatcher;
 use Imanager\Exception\NotFoundException;
 use Imanager\Exception\StorageException;
 use Imanager\Query\Clause;
 use Imanager\Query\Direction;
 use Imanager\Query\Query;
 use Imanager\Storage\ItemRepository;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 final readonly class SqliteItemRepository implements ItemRepository
 {
@@ -32,7 +37,14 @@ final readonly class SqliteItemRepository implements ItemRepository
         'updated' => 'updated',
     ];
 
-    public function __construct(private \PDO $connection) {}
+    private readonly EventDispatcherInterface $events;
+
+    public function __construct(
+        private \PDO $connection,
+        ?EventDispatcherInterface $events = null,
+    ) {
+        $this->events = $events ?? new NullEventDispatcher();
+    }
 
     public function find(int $id): ?Item
     {
@@ -108,7 +120,7 @@ final readonly class SqliteItemRepository implements ItemRepository
             $newId = (int) $this->connection->lastInsertId();
             $this->syncFts($newId, $item->name, $item->label, $item->data->toArray());
 
-            return new Item(
+            $created_item = new Item(
                 id: $newId,
                 categoryId: $item->categoryId,
                 name: $item->name,
@@ -119,6 +131,8 @@ final readonly class SqliteItemRepository implements ItemRepository
                 created: $created,
                 updated: $now,
             );
+            $this->events->dispatch(new ItemCreated($created_item, $now));
+            return $created_item;
         }
 
         $existing = $this->find($item->id);
@@ -149,7 +163,7 @@ final readonly class SqliteItemRepository implements ItemRepository
 
         $this->syncFts($item->id, $item->name, $item->label, $item->data->toArray());
 
-        return new Item(
+        $updated = new Item(
             id: $item->id,
             categoryId: $item->categoryId,
             name: $item->name,
@@ -160,15 +174,28 @@ final readonly class SqliteItemRepository implements ItemRepository
             created: $existing->created,
             updated: $now,
         );
+        $this->events->dispatch(new ItemUpdated($existing, $updated, $now));
+        return $updated;
     }
 
     public function delete(int $id): void
     {
-        $stmt = $this->connection->prepare('DELETE FROM items WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        if ($stmt->rowCount() === 0) {
+        // Read the row first so the event we fire below carries category
+        // context, and so a "row not found" surfaces as a NotFoundException
+        // rather than as a no-op delete.
+        $existing = $this->find($id);
+        if ($existing === null) {
             throw NotFoundException::item(0, $id);
         }
+
+        // Fire the deletion event *before* the SQL DELETE runs. The
+        // `files` FK cascades on `ON DELETE CASCADE`, so listeners that
+        // need to inspect related state (file cleanup, cache keys for
+        // active uploads) wouldn't see anything once the row is gone.
+        $this->events->dispatch(new ItemDeleted($id, $existing->categoryId, time()));
+
+        $stmt = $this->connection->prepare('DELETE FROM items WHERE id = :id');
+        $stmt->execute([':id' => $id]);
         $ftsDelete = $this->connection->prepare('DELETE FROM items_fts WHERE rowid = :id');
         $ftsDelete->execute([':id' => $id]);
     }
