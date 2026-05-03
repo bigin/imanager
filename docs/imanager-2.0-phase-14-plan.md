@@ -187,10 +187,9 @@ Jedes Modul landet als eigener PR.
 |---|---|---|---|
 | 14c-1 | `auth` | `phase-14c1-auth` | Login/Logout, CSRF via `Imanager\Http\Csrf` (Phase 10), Password-Hash via `PasswordFieldType` (Phase 7c) |
 | 14c-2 | `pages` | `phase-14c2-pages` | Page-Liste, Page-Edit, Page-Save — der größte und wichtigste Modul |
-| 14c-3 | `users` | `phase-14c3-users` | User-CRUD; eine Category mit speziellem Layout |
+| 14c-3 | `profile` | `phase-14c3-profile` | User-Profile-Edit (eigener User: name, email, password). Ersetzt den ursprünglich getrennten `users`/`profile`-Plan: Legacy-Scriptor hat kein eigenständiges User-CRUD-Modul, daher pro §9 (Funktionsparität) nur `profile` portiert. |
 | 14c-4 | `settings` | `phase-14c4-settings` | Globale Settings — typischerweise einfache Form, low-risk |
 | 14c-5 | `install` | `phase-14c5-install` | Modul-Install/Uninstall — meta-System, vorsichtig |
-| 14c-6 | `profile` | `phase-14c6-profile` | User-Profile-Edit, baut auf 14c-3 auf |
 
 Pro Modul:
 - 1.x-Code (`Item::save()`, `Pages::getPage()`, …) durch 2.0-Repository-Calls
