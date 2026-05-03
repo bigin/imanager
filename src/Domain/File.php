@@ -29,6 +29,7 @@ final readonly class File
         public int $height = 0,
         public int $position = 0,
         public int $created = 0,
+        public string $title = '',
     ) {
         if ($id !== null && $id < 1) {
             throw new \InvalidArgumentException('File id, when set, must be >= 1');
@@ -70,6 +71,25 @@ final readonly class File
             height: $this->height,
             position: $this->position,
             created: $this->created,
+            title: $this->title,
+        );
+    }
+
+    public function withTitle(string $title): self
+    {
+        return new self(
+            id: $this->id,
+            itemId: $this->itemId,
+            fieldId: $this->fieldId,
+            name: $this->name,
+            path: $this->path,
+            mime: $this->mime,
+            size: $this->size,
+            width: $this->width,
+            height: $this->height,
+            position: $this->position,
+            created: $this->created,
+            title: $title,
         );
     }
 

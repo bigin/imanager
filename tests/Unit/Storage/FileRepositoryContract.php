@@ -81,6 +81,7 @@ abstract class FileRepositoryContract extends TestCase
             width: 800,
             height: 600,
             position: 2,
+            title: 'Photo by [Maria Travina](https://example.com)',
         ));
         \assert($saved->id !== null);
 
@@ -94,6 +95,30 @@ abstract class FileRepositoryContract extends TestCase
         self::assertSame(800, $found->width);
         self::assertSame(600, $found->height);
         self::assertSame(2, $found->position);
+        self::assertSame('Photo by [Maria Travina](https://example.com)', $found->title);
+    }
+
+    public function testSaveDefaultsTitleToEmptyString(): void
+    {
+        $saved = $this->storage->files()->save($this->newFile(name: 'no-title.jpg'));
+        \assert($saved->id !== null);
+
+        $found = $this->storage->files()->find($saved->id);
+        self::assertNotNull($found);
+        self::assertSame('', $found->title);
+    }
+
+    public function testTitleCanBeUpdatedOnExistingRow(): void
+    {
+        $saved = $this->storage->files()->save($this->newFile(name: 'updateable.jpg'));
+        \assert($saved->id !== null);
+
+        $updated = $this->storage->files()->save($saved->withTitle('A late caption'));
+        self::assertSame('A late caption', $updated->title);
+
+        $reloaded = $this->storage->files()->find($saved->id);
+        self::assertNotNull($reloaded);
+        self::assertSame('A late caption', $reloaded->title);
     }
 
     public function testFindByItemReturnsAllFilesOrderedByPosition(): void
