@@ -282,7 +282,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 11 | Templates & Pagination | ✅ done | `phase-11-templates` (PR #13, squashed → main) |
 | 12 | SectionCache PSR-16 | ✅ done | `phase-12-cache` (PR #14, squashed → main) |
 | 13 | Upload-Modernisierung | ✅ done | `phase-13-uploads` (PR #15, squashed → main) |
-| 15 | CLI-Werkzeug *(vorgezogen vor 14)* | ⬜ todo | `phase-15-cli` |
+| 15 | CLI-Werkzeug *(vorgezogen vor 14)* | 🟡 in progress | `phase-15-cli` |
 | 14 | Scriptor-Integration *(siehe [Detail-Plan](./imanager-2.0-phase-14-plan.md))* | ⬜ todo | mehrere PRs in **Scriptor**-Repo, Branch `imanager-2.0` |
 | 16 | Doku & Examples | ⬜ todo | `phase-16-docs` |
 | 17 | 2.0-Release | ⬜ todo | `release/2.0.0` |
