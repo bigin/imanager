@@ -93,6 +93,24 @@ final readonly class File
         );
     }
 
+    public function withPosition(int $position): self
+    {
+        return new self(
+            id: $this->id,
+            itemId: $this->itemId,
+            fieldId: $this->fieldId,
+            name: $this->name,
+            path: $this->path,
+            mime: $this->mime,
+            size: $this->size,
+            width: $this->width,
+            height: $this->height,
+            position: $position,
+            created: $this->created,
+            title: $this->title,
+        );
+    }
+
     public function isImage(): bool
     {
         return str_starts_with($this->mime, 'image/');
