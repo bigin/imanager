@@ -106,14 +106,32 @@ Jede Sub-Phase landet als eigenständiger PR auf `imanager-2.0`.
 
 ### Status-Tracking
 
-| Sub-Phase | Titel | Status | Branch (in Scriptor) |
+| Sub-Phase | Titel | Status | PR(s) in Scriptor |
 |---|---|---|---|
-| 14a | Composer-Integration & DI-Bootstrap | ⬜ todo | `phase-14a-bootstrap` |
-| 14b | Frontend-Rendering auf neuer API | ⬜ todo | `phase-14b-frontend` |
-| 14c | Editor-Module (mehrere Sub-Sub-Phasen) | ⬜ todo | `phase-14c-editor-*` |
-| 14d | Upload-Pipeline (FilePond + Endpoint + Plugins) | ⬜ todo | `phase-14d-uploads` |
-| 14e | Domain-Event-Listener-Verkabelung | ⬜ todo | `phase-14e-events` |
-| 14f | Cleanup & Acceptance | ⬜ todo | `phase-14f-cleanup` |
+| 14a   | Composer-Integration & DI-Bootstrap         | ✅ done | #18 |
+| 14b-1 | Frontend-Skeleton (Site/Page/PageRepository) | ✅ done | #19 |
+| 14b-2 | BasicTheme rewrite                          | ✅ done | #21 |
+| 14b-3 | Image pipeline (ImageUrlBuilder)            | ✅ done | #22 |
+| 14c-1 | auth (login/logout, CSRF)                   | ✅ done | #20 |
+| 14c-2 | pages (CRUD + Markdown preview)             | ✅ done | #24 |
+| 14c-3 | profile (collapses original 14c-3 + 14c-6)  | ✅ done | #26 |
+| 14c-4 | settings (informational)                    | ✅ done | #27 |
+| 14c-5 | install (site/modules manager)              | ✅ done | #28 |
+| 14d-1 | upload endpoint + FilePond vendoring        | ✅ done | #29 |
+| 14d-2 | pages-uploads (FilePond on edit form)       | ✅ done | #30 |
+| 14d-3 | frontend renders FileRepository             | ✅ done | #31 |
+| 14e-2 | listeners (file cleanup + cache invalidation) | ✅ done | #32 |
+| 14f   | Cleanup, README/CHANGELOG, perf-smoke       | ✅ done | #36 |
+
+Plus inline hotfix PRs that landed alongside the sub-phases (single-entry
+router, FilePond field name, legacy-image preview, etc.) and the post-14f
+`feature/image-titles` PR that brought 1.x image-caption parity onto the
+2.0 stack.
+
+> **iManager-side companion:** Phase 14e-1 (PSR-14 dispatcher + storage
+> emits) shipped on `bigins/imanager` `main` ahead of 14e-2;
+> `feature/file-title-column` (schema migration `0004` + Domain/Repo
+> support for the per-file title) followed during Phase 14f.
 
 ---
 
@@ -371,14 +389,16 @@ das alte 1.x-Event.
 
 1. ✅ Alle Sub-Phasen 14a–14f gemerged.
 2. ✅ Migrierte echte Daten verifiziert.
-3. ✅ Manuelle Acceptance: einloggen → neue Seite anlegen mit Bild und
+3. 🟡 Manuelle Acceptance: einloggen → neue Seite anlegen mit Bild und
    Content → abspeichern → im Frontend sehen → bearbeiten → löschen.
-4. ✅ Performance-Budget aus Plan §8.2 erfüllt.
-5. ✅ Kein `Scriptor/imanager/`-Verzeichnis mehr im Repo.
-6. ✅ Composer-Dep-Graph zeigt `bigins/imanager:^2.0` als Quelle.
-7. ✅ Demo-Site auf `demos.scriptor-cms.info` rebuildet auf 2.0
-   (kann nach Phase 17 passieren — ist aber Indikator, dass alles
-   tatsächlich läuft).
+   *(Bigin durchläuft das nach jedem Merge im Browser auf scriptor.cms;
+   der formelle End-to-End-Run vor dem Cutover läuft separat.)*
+4. ✅ Performance-Budget aus Plan §8.2 erfüllt
+   (`Scriptor/bin/perf-smoke.php`, alle Werte > 100× unter Budget).
+5. ✅ Kein `Scriptor/imanager/`-Verzeichnis mehr im Repo (PR #36).
+6. ✅ Composer-Dep-Graph zeigt `bigins/imanager:2.0.x-dev` als Quelle.
+7. ⬜ Demo-Site auf `demos.scriptor-cms.info` rebuildet auf 2.0 —
+   kann nach Phase 17 passieren.
 
 ---
 
@@ -399,8 +419,16 @@ ADR (`docs/adr/NNNN-<thema>.md`).
 
 ## 12. Was als Nächstes ansteht
 
-1. **Phase 15 (CLI) in iManager** — vorgezogen, weil's das Migrations-Tool
-   bringt, das Phase 14 braucht.
-2. **Migrations-Realtest** auf Daten-Kopie, dann auf echten Daten.
-3. **Phase 14a (Bootstrap)** in Scriptor.
-4. … Rest des Plans hier.
+1. **Pre-cutover acceptance.** Bigin sammelt eine Liste der
+   verbleibenden Probleme, die wir vor dem Branch-Rename
+   `imanager-2.0` → `master` lösen müssen. Solange die offen sind,
+   bleibt `imanager-2.0` der long-lived integration branch.
+   Detail-Workflow für den Cutover steht in
+   `Scriptor/docs/handover-pre-cutover.md`.
+2. **Cutover (destruktiv, nur auf explizite Freigabe).** Plan §3:
+   `master` als Tag `1.x-final` aufheben, `imanager-2.0` zu `master`
+   umbenennen, `:imanager-2.0` als remote-Branch löschen.
+3. **Phase 16 — Docs & Examples.** iManager-seitig: README,
+   Quickstart, Beispiel-Repo. Bisher nicht angefangen.
+4. **Phase 17 — 2.0.0 Release.** Tag `bigins/imanager` auf Packagist;
+   Scriptor stellt von Path-Repo auf Stable um.
