@@ -87,9 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Phase 9 — 1.x → 2.0 migration tool
 
-- `Imanager\Migration\FromV1Migrator` reads 1.x's flat `buffers/` PHP
+- `Imanager\Migration\V1FileParser` reads 1.x's flat `buffers/` PHP
   files via `nikic/php-parser` (AST-safe, no `eval`/`include` of user
-  data).
+  data); `Imanager\Migration\JsonV1Importer` walks the parsed buffers
+  and writes the new schema inside a single transaction.
 - Field-type-aware value translation; `--dry-run` produces a report.
 - Asset copy from legacy `data/uploads/<cat>.<id>.<field>/` into the
   new `data/uploads-2.0/<itemId>/<fieldId>/` layout.
@@ -150,3 +151,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updated; full test coverage (`feature/file-title-column`).
 - `feat(files): File::withPosition()` helper for ordered file
   re-numbering used by Scriptor's pages-edit drag-handle (#21).
+
+### Phase 16 — Docs & examples (in progress)
+
+- `DefaultBootstrap` factory wires the full standard service graph
+  (PDO + schema migrations, Storage + 4 repositories, FieldTypeRegistry
+  with all 16 built-ins, FilesystemCache, LocalFileStorage,
+  ImageProcessor, NativeSessionStore, Csrf, PSR-14 dispatcher trio).
+  `Bootstrap::boot()` stays minimal for hosts that want to swap any
+  layer. Full test coverage in `tests/Unit/DefaultBootstrapTest`.
+- `README.md` rewrite — quickstart with runnable Blog example
+  (verified against contract tests), concepts section, CLI table,
+  roadmap pointers.
+- `docs/migration-guide.md` — 1.x → 2.0 walkthrough with dry-run,
+  real, verify, and app-switch steps. Documents the deferred
+  parent-id re-mapping issue and its SQL workaround.
+- `docs/api/` — API reference: index of 13 subsystems plus core
+  detail pages for Domain (`domain.md`), Storage (`storage.md`),
+  Query (`query.md`), and Field types (`field-types.md`). Examples
+  lifted from `tests/Unit/Storage/*Contract.php` so every snippet
+  compiles and is exercised on CI.
