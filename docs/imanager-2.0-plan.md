@@ -45,20 +45,19 @@ In-place-Upgrade-Pfad – Migration läuft über ein dediziertes Tool.
 ## 3. Repo-, Branching- & Release-Strategie
 
 **iManager 2.0 wird in einem eigenen Repo entwickelt** als standalone
-Composer-Library `bigins/imanager`. Das Scriptor-Repo bleibt unverändert,
-bis Phase 14 (Admin/Editor-Anpassung) – dann zieht Scriptor `bigins/imanager`
-als Composer-Dependency und das eingebettete `imanager/`-Verzeichnis
-entfällt.
+Composer-Library `bigins/imanager`. Vorhandene Hosts ziehen 2.0 erst
+in Phase 14 (First-Consumer-Cutover) als Composer-Dependency rein —
+bis dahin laufen sie auf 1.x weiter.
 
-- **Neues Repo:** `bigins/imanager` (GitHub), Composer-Paket `bigins/imanager`.
-- **Branches im neuen Repo:**
+- **Repo:** `bigins/imanager` (GitHub), Composer-Paket `bigins/imanager`.
+- **Branches:**
   - `main` als Default-Branch (entwicklungsaktiv).
   - Pro Phase ein Feature-Branch `phase-N-<thema>` → PR auf `main`.
-- **Scriptor-Repo:** `master` wird **eingefroren** als 1.x-Linie. Keine
-  1.13.x-Wartungsrelease — Bestand ist minimal, Aufwand lohnt nicht.
 - Vor 2.0-Release: Tags `2.0.0-rc.1`, `rc.2`, …, dann `2.0.0`.
-- Phase 14 öffnet einen Branch `imanager-2.0` im **Scriptor**-Repo, der
-  Scriptor's `editor/`-Module auf die neue iManager-API umstellt.
+- Phase 14 (First-Consumer-Cutover) findet im **Repo des jeweiligen
+  Hosts** statt, nicht hier — die iManager-Seite trägt nur das
+  Release-Gate "mindestens ein Real-World-Consumer ist erfolgreich
+  auf 2.0 umgestellt".
 
 ---
 
@@ -171,10 +170,11 @@ Die Wurzel des neuen `bigins/imanager`-Repos sieht so aus:
 └── .php-cs-fixer.php
 ```
 
-Das alte eingebettete `Scriptor/imanager/` bleibt während der gesamten
-Entwicklung **unangetastet**. Der Switchover passiert in Phase 14, wenn
-Scriptor `bigins/imanager` per Composer einbindet und das alte Verzeichnis
-gelöscht wird.
+Existierende Hosts mit eingebettetem 1.x-`imanager/`-Verzeichnis bleiben
+während der gesamten Entwicklung **unangetastet**. Der Switchover passiert
+in Phase 14, wenn der jeweilige Host `bigins/imanager` per Composer
+einbindet und das alte Verzeichnis löscht — siehe Phase-14-Detail-Plan
+in dessen eigenem Repo.
 
 ---
 
@@ -283,7 +283,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 12 | SectionCache PSR-16 | ✅ done | `phase-12-cache` (PR #14, squashed → main) |
 | 13 | Upload-Modernisierung | ✅ done | `phase-13-uploads` (PR #15, squashed → main) |
 | 15 | CLI-Werkzeug *(vorgezogen vor 14)* | ✅ done | `phase-15-cli` (PR #17, squashed → main) |
-| 14 | Scriptor-Integration *(siehe [Detail-Plan](./imanager-2.0-phase-14-plan.md))* | ✅ done | mehrere PRs in **Scriptor**-Repo, Branch `imanager-2.0` (cutover offen) |
+| 14 | First-Consumer-Cutover *(Detail-Plan im jeweiligen Host-Repo)* | ✅ done | mehrere PRs auf Host-Seite, Cutover validiert |
 | 16 | Doku & Examples | ⬜ todo | `phase-16-docs` |
 | 17 | 2.0-Release | ⬜ todo | `release/2.0.0` |
 
@@ -294,7 +294,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 **Ziel:** alles aufstellen, was wir für sauberes Arbeiten brauchen.
 
 **Scope:**
-- Neues Repo `bigins/imanager` initialisieren (lokal als sibling von Scriptor).
+- Neues Repo `bigins/imanager` initialisieren.
 - `composer.json`: PSR-4 `Imanager\\` → `src/`, Paket `bigins/imanager`,
   Bin-Eintrag `bin/imanager`.
 - Dev-Dependencies: phpunit, phpstan, psalm, php-cs-fixer, league/container,
@@ -307,7 +307,7 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
   pdo_sqlite, mbstring, gd, dom, json, opcache + System-Tools sqlite3-cli,
   composer, git, make.
 - README initial.
-- LICENSE (MIT, übernommen aus Scriptor).
+- LICENSE (MIT).
 - Smoke-Test, der CI grün fährt.
 
 **Deliverables:**
@@ -580,7 +580,7 @@ identischen Datensatz.
 - PSR-7 als Option **prüfen**, aber nicht zwingend einbauen — Aufwand vs.
   Nutzen abwägen, wenn wir an Phase 10 sind.
 - `UrlSegments` als injizierbarer Service.
-- `Csrf`-Klasse: aktuelle Token-Logik aus Scriptor übernehmen, modernisieren
+- `Csrf`-Klasse: bewährte Token-Logik aus 1.x übernehmen, modernisieren
   (kryptographische Konstanten, Tab-Token-Buffer typisiert).
 
 **Deliverables:**
@@ -655,24 +655,31 @@ HTML-Output).
 
 ---
 
-### Phase 14 — Admin/Editor-Anpassung in Scriptor
+### Phase 14 — First-Consumer-Cutover (Release-Gate)
 
-**Ziel:** Scriptor's `editor/`-Module benutzen die neue iManager-2.0-API.
+**Ziel:** Mindestens ein Real-World-Consumer ist erfolgreich auf
+iManager 2.0 umgestellt — als Validierung der öffentlichen API
+vor dem 2.0.0-Tag.
 
-**Scope:**
-- Editor-Module (`pages`, `profile`, `auth`, `settings`, `install`, `parsedown`)
-  Schritt für Schritt umstellen.
-- Scriptor's `Site`-Klasse, `Pages`, `Users`, `User`, `Page` auf
-  Repository-API umstellen.
-- Scriptor `Editor`-Hooks an iManager Domain-Events anpassen.
-- Reservierte Slugs / Page-Resolution überarbeiten.
+**Scope (iManager-seitig):**
+- Keine Library-Änderungen außer Bugfixes, die der Cutover aufdeckt.
+- API-Stability: alle Repository-, Field-Type- und Event-Contracts
+  sind eingefroren, sobald der Cutover startet.
 
-**Deliverables:**
-- Scriptor läuft auf 2.0 ohne 1.x-Code-Pfade.
-- Editor funktional gleich oder besser.
+**Scope (Host-seitig, nicht hier gepflegt):**
+- Host-Repo migriert seinen eigenen Anwendungscode (Admin/Editor,
+  Page-Resolution, Auth, Uploads) von 1.x auf die Repository-API
+  von 2.0; das passiert im jeweiligen Host-Repo mit eigenem
+  Detail-Plan.
 
-**Acceptance:** Manuell-Test des Default-Themes, alle Editor-Module
-funktional.
+**Deliverables (iManager-seitig):**
+- Cutover-Feedback führt zu Library-Bugfix-Releases entlang
+  `2.0.0-rc.*`.
+- Etwaige API-Klärungen landen vor dem 2.0.0-Tag.
+
+**Acceptance:** Ein Real-World-Consumer läuft produktiv (oder
+production-ready) gegen `bigins/imanager:^2.0` ohne offene
+API-Issues.
 
 ---
 
@@ -712,7 +719,7 @@ Tests gegen ein temporäres DB-File.
 - Docker-Compose-Beispiel (php-fpm + nginx + Volume für `data/`).
 - nginx- und Caddy-Configs als Snippets (statt nur Apache-`.htaccess`).
 - Beispiel-Theme oder Beispiel-Site, die die neue API nutzt.
-- Update von `README.md` und `scriptor-cms.info`-Doku.
+- Update von `README.md`.
 
 **Deliverables:**
 - `docs/api/*`, `docs/migration-guide.md`, `docs/deployment.md`,
@@ -735,8 +742,9 @@ Tests gegen ein temporäres DB-File.
 - `2.0.0` taggen, Composer-Release, GitHub-Release-Notes.
 - Blog-Post / Announcement.
 
-**Acceptance:** Composer `composer require bigins/scriptor:^2.0` installiert
-sauber; Migration einer 1.x-Site liefert lauffähige 2.0-Site.
+**Acceptance:** `composer require bigins/imanager:^2.0` installiert in
+einem frischen Host-Projekt sauber; Migration einer 1.x-Site liefert
+lauffähige 2.0-Site.
 
 ---
 
@@ -820,8 +828,9 @@ Benchmarks werden in CI als Smoke-Test mitgefahren (kein Hard-Fail, aber Trend-M
 5. ✅ Migration einer Referenz-1.x-Site verlustfrei.
 6. ✅ Performance-Budget erfüllt (siehe §8.2).
 7. ✅ Doku & Migrations-Guide live.
-8. ✅ `composer require bigins/scriptor:^2.0` installiert sauber.
-9. ✅ Demo-Site auf `demos.scriptor-cms.info` läuft auf 2.0.
+8. ✅ `composer require bigins/imanager:^2.0` installiert in einem
+   frischen Host-Projekt sauber.
+9. ✅ Eine Demo-Site eines Real-World-Consumers läuft auf 2.0.
 
 ---
 
@@ -844,12 +853,12 @@ Benchmarks werden in CI als Smoke-Test mitgefahren (kein Hard-Fail, aber Trend-M
 Phasen 0–13 sind abgeschlossen (siehe Status-Tabelle in §7).
 
 1. **Phase 15 (CLI-Werkzeug)** — vorgezogen vor Phase 14, damit das
-   Migrations-Tool fertig ist, bevor wir Scriptor-Daten überführen.
-2. **Migrations-Realtest** auf einer Kopie der Scriptor-Bestandsdaten,
-   dann auf den echten Daten.
-3. **Phase 14 (Scriptor-Integration)** — eigenständiger Detail-Plan in
-   [`imanager-2.0-phase-14-plan.md`](./imanager-2.0-phase-14-plan.md).
-   Mehrere Sub-Phasen 14a–14f, jeweils als PR im **Scriptor**-Repo
-   gegen einen neuen long-lived Branch `imanager-2.0`.
+   Migrations-Tool fertig ist, bevor irgendein Host-Datenbestand
+   überführt wird.
+2. **Migrations-Realtest** auf einer Kopie eines echten 1.x-Datasets.
+3. **Phase 14 (First-Consumer-Cutover)** — der Cutover-Detail-Plan
+   liegt im jeweiligen Host-Repo. iManager-seitig: API einfrieren,
+   Bug-Fix-RCs entlang `2.0.0-rc.*` ausspielen, sobald Cutover-
+   Feedback eintrudelt.
 4. **Phase 16** (Doku) und **Phase 17** (2.0.0-Release) schließen ab.
 

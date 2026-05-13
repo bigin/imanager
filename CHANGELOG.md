@@ -114,8 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Imanager\Cache\FilesystemCache` implementing PSR-16
   `CacheInterface`; HTML snippet caching with TTL + atomic write.
-- Invalidation hook published as a domain event so listeners
-  (Scriptor's `PageCacheInvalidationListener`) can clear on writes.
+- Invalidation hook published as a domain event so host listeners
+  can clear cached entries on writes without monkey-patching the
+  storage layer.
 
 ### Phase 13 — Files & upload
 
@@ -150,7 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   captions / alt text); `File` domain object + `FileRepository`
   updated; full test coverage (`feature/file-title-column`).
 - `feat(files): File::withPosition()` helper for ordered file
-  re-numbering used by Scriptor's pages-edit drag-handle (#21).
+  re-numbering — supports drag-and-drop reordering in host editor
+  UIs without re-saving the surrounding item (#21).
 
 ### Phase 16 — Docs & examples (in progress)
 

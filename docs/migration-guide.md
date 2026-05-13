@@ -171,10 +171,11 @@ work:
 - If you use the FTS, rebuild the index after the first successful
   boot (`vendor/bin/imanager fts:rebuild`).
 
-Scriptor's own switchover is documented in
-`Scriptor/docs/imanager-2.0-phase-14-plan.md` and the
-sub-phase PRs (`#18`…`#36` on `bigin/Scriptor`) — it's the most
-detailed worked example available right now.
+The shape of this work is host-specific — what calls you replace,
+in what order, and how you stage the cutover depends on the
+application sitting on top of iManager. The repository / event /
+field-type APIs are stable; the wiring around them is yours to
+design.
 
 ---
 
@@ -196,8 +197,9 @@ item.
 Workaround until the forward fix lands:
 
 1. After migration, find affected fields. Anything whose values are
-   numeric IDs of other items in the same table is a candidate
-   (Scriptor's `Pages.parent` is the canonical case).
+   numeric IDs of other items in the same table is a candidate — the
+   canonical case is a self-referential `parent` field on a tree of
+   items (pages, categories, comments).
 2. Build the mapping `1.x-id → 2.0-id` by reading
    `data/datasets/buffers/items/<cat>.items.php` for the
    per-category old IDs and joining against the new IDs by `slug` or
