@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Imanager::class)]
 final class SmokeTest extends TestCase
 {
-    public function testVersionConstantIsDevelopmentTag(): void
+    public function testVersionConstantIsStableTag(): void
     {
-        self::assertSame('2.0.0-dev', Imanager::VERSION);
+        self::assertSame('2.0.0', Imanager::VERSION);
     }
 }

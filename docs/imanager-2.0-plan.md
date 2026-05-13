@@ -284,8 +284,8 @@ können parallel laufen, sobald ihre Vorbedingungen erfüllt sind.
 | 13 | Upload-Modernisierung | ✅ done | `phase-13-uploads` (PR #15, squashed → main) |
 | 15 | CLI-Werkzeug *(vorgezogen vor 14)* | ✅ done | `phase-15-cli` (PR #17, squashed → main) |
 | 14 | First-Consumer-Cutover *(Detail-Plan im jeweiligen Host-Repo)* | ✅ done | mehrere PRs auf Host-Seite, Cutover validiert |
-| 16 | Doku & Examples | ⬜ todo | `phase-16-docs` |
-| 17 | 2.0-Release | ⬜ todo | `release/2.0.0` |
+| 16 | Doku & Examples | ✅ done | API ref + cookbooks + deployment + migration guides, mehrere PRs squashed → main |
+| 17 | 2.0-Release | ✅ done | `release/2.0.0` → Tag `2.0.0` (2026-05-13) |
 
 ---
 

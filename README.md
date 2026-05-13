@@ -17,25 +17,23 @@ your application is shaped.
 
 ## Status
 
-**🚧 2.0 development in progress — not for production use.**
+**Stable — 2.0.0 released 2026-05-13.**
 
 iManager 2.0 is a ground-up rewrite of the 1.x library. The 2.0 line
 replaces the flat `var_export`-based persistence with SQLite (JSON
 `items.data` column + generated columns + FTS5), introduces typed
 domain models, a Repository / Query layer, a CLI tool, and a clean
-field-type plugin system. The 2.0.0 Packagist tag is targeted for
-Phase 17 — until then, `bigins/imanager:2.0.x-dev` is the way to
-consume it. The 1.x line remains available for production use.
+field-type plugin system. The 1.x line remains available for hosts
+still on the embedded library.
 
 ---
 
 ## Quickstart
 
-Install via Composer (you'll need [`minimum-stability: dev`](https://getcomposer.org/doc/04-schema.md#minimum-stability)
-until 2.0.0 is tagged):
+Install via Composer:
 
 ```bash
-composer require bigins/imanager:2.0.x-dev
+composer require bigins/imanager:^2.0
 ```
 
 Boot the full standard service graph with `DefaultBootstrap::boot()`
