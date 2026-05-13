@@ -191,10 +191,14 @@ final readonly class FieldValueBag
 }
 ```
 
-The bag does **not** validate values against the field schema — that
-happens during `ItemRepository::save()`, which routes each value
-through the relevant `FieldTypePlugin::validate()`. The bag is
-storage; the plugin is the typing rule.
+The bag does **not** validate values against the field schema, and
+neither does `ItemRepository::save()` — the repository writes
+`Item::$data` verbatim. Validation is the host's responsibility:
+call `FieldTypeRegistry::get($field->type)->validate(...)` before
+constructing the `Item` you pass to `save()`. The
+[Field-types cookbook](../field-types.md#2-the-validation-pipeline)
+shows the canonical loop. The bag is storage; the plugin is the
+typing rule; the host wires them together.
 
 ### Example
 

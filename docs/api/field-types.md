@@ -123,9 +123,13 @@ array, `null`, `false`. The plugin decides what it accepts. Return
 `ValidationResult::ok($coerced)` with the canonical value, or
 `ValidationResult::failed(InputErrorCode::*, $message)` to refuse.
 
-`ItemRepository::save()` calls `validate()` for every value in
-`$item->data` before writing — a failure raises `ValidationException`
-carrying the field name, code, and message.
+`validate()` is invoked by **host code** — typically the editor
+controller that receives the form submission. `ItemRepository::save()`
+itself writes `$item->data` verbatim and does **not** route values
+through the registry. The canonical pattern is "validate, then
+save" — the
+[Field-types cookbook](../field-types.md#5-registering-a-custom-plugin)
+walks through the call shape.
 
 ### `render()`
 

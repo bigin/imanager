@@ -163,10 +163,16 @@ hydrated items. Useful for pagination headers.
 
 ### `save()`
 
-- Validates each value in `$item->data` against its field's plugin
-  before persisting. **Throws `ValidationException`** when a value
-  fails validation; the exception carries the field name and
-  `InputErrorCode`.
+- Writes `$item->data` to the SQLite `data` column **verbatim**.
+  `save()` does **not** invoke field-type plugins — validation is
+  the host's responsibility (see the
+  [Field-types cookbook](../field-types.md#the-validation-pipeline)
+  for the canonical "validate before save" pattern). If you skip
+  the plugin call, whatever you pass in lands in the JSON column as
+  is: raw form input ends up unsanitised, plaintext passwords are
+  stored plaintext, a `Password`-typed field doesn't auto-hash on
+  save. Run your input through `FieldTypeRegistry::get($field->type)->validate(...)`
+  before constructing the `Item`.
 - Promotes "hot" (indexed) field values into generated columns
   automatically — you do **not** need to update them separately.
 - **Throws `NotFoundException`** if you save an item with a

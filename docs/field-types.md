@@ -111,9 +111,10 @@ sophisticated ones.
    Don't read raw `$field->config` keys directly — a missing key
    becomes a silent `null` and surprises someone down the road.
 4. **`validate()` returns a `ValidationResult`, not an exception.**
-   Even for catastrophic input. The repository turns failed results
-   into a `ValidationException` at save-time with the field name
-   attached.
+   Even for catastrophic input. The host wraps the failed result
+   in a `ValidationException` (or whatever its own error shape is)
+   before propagating — the repository never sees the result
+   object.
 5. **`render()` must produce HTML safe to drop in any `<form>`.**
    Escape every dynamic value through the injected `Sanitizer`. Do
    not assume the host editor is escaping for you.
@@ -122,9 +123,56 @@ sophisticated ones.
 
 ## 2. The validation pipeline
 
-`ItemRepository::save()` calls `validate()` once per field declared
-on the item's category. The flow inside your plugin should follow
-the same skeleton the built-ins use:
+`validate()` is the contract every plugin exposes for input
+coercion. **The host calls it; the storage layer does not.**
+`ItemRepository::save()` writes `$item->data` verbatim — it never
+routes values through the registry. The canonical "save" flow on
+the host side looks like this:
+
+```php
+use Imanager\Field\FieldTypeRegistry;
+use Imanager\Storage\FieldRepository;
+use Imanager\Storage\ItemRepository;
+use Imanager\Exception\ValidationException;
+
+/** @var FieldTypeRegistry $registry */
+$registry = $container->get(FieldTypeRegistry::class);
+/** @var FieldRepository $fields */
+$fields   = $container->get(FieldRepository::class);
+/** @var ItemRepository $items */
+$items    = $container->get(ItemRepository::class);
+
+$coerced = [];
+foreach ($fields->findByCategory($categoryId) as $field) {
+    $raw    = $rawForm[$field->name] ?? null;
+    $plugin = $registry->get($field->type);
+    $result = $plugin->validate($raw, $field);
+    if (! $result->isValid) {
+        throw new ValidationException(\sprintf(
+            'Field "%s" failed validation (%s)',
+            $field->name,
+            $result->errorCode?->name ?? 'unknown',
+        ));
+    }
+    if ($result->coerced !== null) {
+        $coerced[$field->name] = $result->coerced;
+    }
+}
+
+$items->save(new Item(
+    id: null,
+    categoryId: $categoryId,
+    name: $coerced['slug'] ?? null,
+    data: $coerced,
+));
+```
+
+The `null` skip is intentional — `PasswordFieldType::validate()`
+returns `ok(null)` for "leave the existing hash alone", and you
+want that key absent from `$coerced` rather than written as `null`.
+
+The flow inside your plugin's `validate()` should follow the same
+skeleton the built-ins use:
 
 ```php
 public function validate(mixed $rawValue, Field $field): ValidationResult
@@ -660,9 +708,12 @@ $max = (int) ($config['maxLength'] ?? 255);
 
 ### 7.2 Throwing from `validate()`
 
-Don't. The repository catches `ValidationResult::failed(...)` and
-turns it into a `ValidationException` for you. Throwing your own
-exception breaks the host editor's error-mapping flow.
+Don't. The host's "validate then save" loop expects a
+`ValidationResult` it can branch on (success → coerced value into the
+bag, failure → map the `InputErrorCode` to a UI message). An
+exception out of `validate()` breaks that flow — the host has to
+add a `try/catch` around every plugin call, and your error code
+never reaches the surface.
 
 ### 7.3 Escaping at the wrong layer
 
@@ -672,11 +723,13 @@ source of double-escaped values in form output.
 
 ### 7.4 Trusting `$field->required` for "must be present in DB"
 
-`required` is a *form-validation* flag — it rejects empty values
-when an item is saved through the normal API. It does **not** add a
-`NOT NULL` constraint to the generated column. Items inserted by
-data migration, by direct SQL, or with `$item->data` missing the key
-entirely will not trip the check.
+`required` is a *plugin-input* flag — it's the signal a plugin's
+`validate()` looks at to decide whether to reject empty raw input.
+It only catches anything when a host actually calls `validate()`.
+It does **not** add a `NOT NULL` constraint to the generated column,
+and `ItemRepository::save()` doesn't read it. Items inserted by a
+data migration, by direct SQL, by a seed script, or by host code
+that skipped the validate step will not trip the check.
 
 ### 7.5 Forgetting to return ok/failed on every code path
 
