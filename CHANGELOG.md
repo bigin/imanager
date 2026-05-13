@@ -194,6 +194,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   maintenance (`optimize` weekly, `optimize --vacuum` quarterly,
   `repair` monthly), PSR-3 logger hookup, and a pre-launch
   checklist.
+- `docs(api/storage,field-types,domain): correct the
+  "ItemRepository validates" claim` — the API reference, the
+  field-types cookbook, and the domain reference all claimed
+  `ItemRepository::save()` routes values through the registered
+  `FieldTypePlugin`s. It doesn't. `save()` writes `$item->data`
+  verbatim; validation is a host responsibility. Replaced the false
+  claims with the canonical "validate then save" loop showing how
+  hosts wire `FieldTypeRegistry::get($field->type)->validate(...)`
+  before constructing the `Item`. Adjacent statements about
+  `$field->required` and the lifecycle of `ValidationResult` /
+  `ValidationException` corrected to match.
 - `docs: drop references to a specific consumer (Scriptor)
   throughout` — library docs read as host-neutral; Phase 14
   reframed as "First-Consumer-Cutover (Release-Gate)"; consumer-
