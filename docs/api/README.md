@@ -90,11 +90,13 @@ against. Companion guides:
   patterns, rendering patterns, registration, testing). The
   reference page [`field-types.md`](field-types.md) is the matching
   index.
+- [`docs/query-cookbook.md`](../query-cookbook.md) — **cookbook**
+  for the `Query` builder: predicate recipes, pagination flows,
+  selector strings, full-text-search hand-off, performance.
+  Matching reference page: [`query.md`](query.md).
 
 Still to come in Phase 16:
 
-- `docs/query-cookbook.md` — recipes for the `Query` builder and
-  selector strings (faceted lookups, pagination flows, FTS hand-off).
 - `docs/deployment.md` — production deployment (Caddy / nginx, file
   permissions, backup, scheduled `optimize`).
 

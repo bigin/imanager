@@ -180,10 +180,12 @@ Available composer scripts:
   detail pages for Domain, Storage, Query, and Field types.
 - **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md)
   — how-to companion to the Field-types reference.
+- **Query cookbook**: [`docs/query-cookbook.md`](docs/query-cookbook.md)
+  — predicate recipes, pagination, selector strings, full-text-search
+  hand-off, performance.
 - **Migration guide** (1.x → 2.0):
   [`docs/migration-guide.md`](docs/migration-guide.md).
-- Query cookbook and deployment guide land during the rest of
-  Phase 16.
+- A deployment guide lands during the rest of Phase 16.
 
 ---
 

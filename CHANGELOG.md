@@ -177,6 +177,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Field-types reference: anatomy, validation pipeline, render
   patterns, end-to-end custom-plugin walkthrough
   (money-with-currency), registration, testing, common pitfalls.
+- `docs/query-cookbook.md` — how-to cookbook companion to the
+  Query reference: predicate recipes (structural columns vs JSON
+  fields, ranges, `LIKE` semantics, the "OR-shaped" problem),
+  sorting with stable tiebreakers, pagination with `count()` +
+  `Pagination`, selector strings, FTS hand-off pattern, and a
+  performance section covering hot/cold fields, wildcard cost,
+  offset depth, and partial indexes.
 - `docs: drop references to a specific consumer (Scriptor)
   throughout` — library docs read as host-neutral; Phase 14
   reframed as "First-Consumer-Cutover (Release-Gate)"; consumer-
