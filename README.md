@@ -8,9 +8,10 @@ iManager is a small CMS **framework**, not a CMS application: you embed
 it inside your own PHP app and get a typed domain model, a Repository
 layer over SQLite (JSON columns + FTS5), a Field-Type plugin system,
 file storage with on-demand thumbnails, and a CLI for schema and
-migration ops. The reference consumer is
-[Scriptor](https://github.com/bigin/Scriptor), a flat-file CMS that
-boots iManager and adds an Editor UI on top of it.
+migration ops. Use it under any PHP front-end you like — a hand-rolled
+admin tool, a flat-file CMS, an internal API, a static-site generator
+that needs a typed content store. iManager has no opinion about how
+your application is shaped.
 
 ---
 
@@ -18,15 +19,13 @@ boots iManager and adds an Editor UI on top of it.
 
 **🚧 2.0 development in progress — not for production use.**
 
-iManager 2.0 is a ground-up rewrite of the iManager library that
-shipped with Scriptor ≤ 1.x. The 2.0 line replaces the flat
-`var_export`-based persistence with SQLite (JSON `items.data` column +
-generated columns + FTS5), introduces typed domain models, a Repository
-/ Query layer, a CLI tool, and a clean field-type plugin system. The
-2.0.0 Packagist tag is targeted for Phase 17 — until then,
-`bigins/imanager:2.0.x-dev` is the way to consume it.
-
-For the current production-ready 1.x line, use Scriptor ≤ 1.x.
+iManager 2.0 is a ground-up rewrite of the 1.x library. The 2.0 line
+replaces the flat `var_export`-based persistence with SQLite (JSON
+`items.data` column + generated columns + FTS5), introduces typed
+domain models, a Repository / Query layer, a CLI tool, and a clean
+field-type plugin system. The 2.0.0 Packagist tag is targeted for
+Phase 17 — until then, `bigins/imanager:2.0.x-dev` is the way to
+consume it. The 1.x line remains available for production use.
 
 ---
 
@@ -176,8 +175,6 @@ Available composer scripts:
 
 - **Master plan** (multi-phase rewrite, phase status):
   [`docs/imanager-2.0-plan.md`](docs/imanager-2.0-plan.md).
-- **Phase 14 detail plan** (Scriptor integration):
-  [`docs/imanager-2.0-phase-14-plan.md`](docs/imanager-2.0-phase-14-plan.md).
 - **Changelog**: [`CHANGELOG.md`](CHANGELOG.md).
 - API reference, migration guide (1.x → 2.0), deployment guide,
   field-type cookbook, and query cookbook are landing during Phase 16.

@@ -375,8 +375,9 @@ $provider->subscribe(ItemDeleted::class, function (ItemDeleted $event): void {
 ```
 
 Listener instantiation can be lazy — wrap the closure body in a
-`static $listener = null` guard if construction is expensive
-(Scriptor's `ImanagerBootstrap` does this for `PageCacheInvalidationListener`).
+`static $listener = null` guard if construction is expensive (e.g.
+the listener queries the DB on construct to learn which category id
+it watches).
 
 ---
 

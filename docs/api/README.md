@@ -51,7 +51,7 @@ tells you which source file to read next.
 | `Imanager\Enum` | `FieldType` (the 16 built-in enum cases), `SqliteAffinity` (storage class hint), `InputErrorCode` (validation error codes). | `src/Enum/` |
 | `Imanager\Files` | File-storage abstraction (`FileStorage` interface, `LocalFileStorage`), upload validation, and `ImageProcessor` for on-demand thumbnails. `FileRepository` (under `Storage`) tracks file *metadata*; this subsystem moves the bytes. | `src/Files/` |
 | `Imanager\Http` | Small request-layer toolkit: `SessionStore` (with `NativeSessionStore` default), `Csrf` (per-form tokens, capped LRU), and request/URL helpers. iManager does *not* ship a router. | `src/Http/` |
-| `Imanager\Cache` | PSR-16 cache contract and `FilesystemCache` (hash-keyed, two-level directory fanout, TTL metadata in-file). Used by Scriptor for section-cache; library itself stays uncached for predictability. | `src/Cache/` |
+| `Imanager\Cache` | PSR-16 cache contract and `FilesystemCache` (hash-keyed, two-level directory fanout, TTL metadata in-file). Hosts wire it to whatever they want to cache (rendered fragments, query results, …); the library itself stays uncached for predictability. | `src/Cache/` |
 | `Imanager\Search` | `FullTextSearch` over a SQLite FTS5 mirror of `items`. CLI command `fts:rebuild` rebuilds the index from scratch. | `src/Search/` |
 | `Imanager\Templating` | Single-purpose `{{var}}` substitution for short strings (pagination links, alerts). Caller is responsible for escaping. **Not** a view layer. | `src/Templating/` |
 | `Imanager\Validation` | `Sanitizer` facade over HTMLPurifier (sanitize) and Parsedown (markdown). Pure functions; safe to call repeatedly. | `src/Validation/` |

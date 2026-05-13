@@ -1,10 +1,11 @@
 # iManager – Tiefenanalyse
 
-> Stand: 2026-05-01 · iManager-Version 3.3.0 (`IM_VERSION_HUMAN`) · eingebettet in Scriptor 1.12.1
+> Stand: 2026-05-01 · iManager 1.x (`IM_VERSION_HUMAN` 3.3.0)
 
-Diese Analyse betrachtet das in Scriptor enthaltene `imanager/`-Framework
-(ca. 5.500 LOC PHP) als eigenständiges Mini-CMF und dient als Grundlage für
-einen anschließenden Architektur- und Refactoring-Plan.
+Diese Analyse betrachtet das 1.x-`imanager/`-Framework (ca. 5.500 LOC
+PHP) als eigenständiges Mini-CMF und dient als Grundlage für einen
+anschließenden Architektur- und Refactoring-Plan (siehe
+[`imanager-2.0-plan.md`](./imanager-2.0-plan.md)).
 
 ---
 

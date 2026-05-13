@@ -7,7 +7,7 @@ Field types are the plugin layer that decides:
 2. What **SQLite affinity** the value uses if it's promoted to a hot
    column.
 3. How the value is **rendered** as an HTML form input — for hosts
-   that lean on the library's rendering, like Scriptor's Editor.
+   that lean on the library's rendering for their editor UI.
 
 This page is the **reference**: enum cases, the plugin interface,
 the registry, and a table of the built-in plugins. A step-by-step
