@@ -183,9 +183,11 @@ Available composer scripts:
 - **Query cookbook**: [`docs/query-cookbook.md`](docs/query-cookbook.md)
   — predicate recipes, pagination, selector strings, full-text-search
   hand-off, performance.
+- **Deployment guide**: [`docs/deployment.md`](docs/deployment.md)
+  — host requirements, webserver + PHP-FPM configs, a production
+  Dockerfile, SQLite at runtime, backups, scheduled maintenance.
 - **Migration guide** (1.x → 2.0):
   [`docs/migration-guide.md`](docs/migration-guide.md).
-- A deployment guide lands during the rest of Phase 16.
 
 ---
 
