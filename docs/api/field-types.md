@@ -10,9 +10,9 @@ Field types are the plugin layer that decides:
    that lean on the library's rendering for their editor UI.
 
 This page is the **reference**: enum cases, the plugin interface,
-the registry, and a table of the built-in plugins. A step-by-step
-cookbook for writing your own type will land in
-`docs/field-types.md` later in Phase 16.
+the registry, and a table of the built-in plugins. The step-by-step
+how-to for writing your own type lives in the
+[Field-types cookbook](../field-types.md).
 
 > Source: `src/Field/{FieldTypePlugin,FieldTypeRegistry,ValidationResult,RenderContext}.php`,
 > `src/Field/Types/`, `src/Enum/FieldType.php`, `src/Enum/SqliteAffinity.php`,
@@ -211,15 +211,41 @@ named constructors' use, not for callers.
 The error vocabulary every plugin shares — `ItemRepository::save()`
 propagates the code through `ValidationException`, and editor UIs
 can map codes to localised messages without parsing free-text. The
-enum lives at `src/Enum/InputErrorCode.php`; common cases:
+enum lives at `src/Enum/InputErrorCode.php`; the numeric values are
+kept stable so values previously persisted as integers still round
+back to the right case.
 
-- `Required` — value was empty and the field is required.
-- `OutOfRange` — numeric or length bounds violated.
-- `PatternMismatch` — string regex check failed.
-- `InvalidType` — raw value's shape was wrong (e.g. string passed
-  where array expected).
-- `UnknownOption` — dropdown value isn't in `config.options`.
-- `FileTooLarge`, `UnsupportedMime` — file-upload constraints.
+```php
+namespace Imanager\Enum;
+
+enum InputErrorCode: int
+{
+    case EmptyRequired       = -1;
+    case MinLengthExceeded   = -2;
+    case MaxLengthExceeded   = -3;
+    case WrongValueFormat    = -4;
+    case ComparisonFailed    = -5;
+    case UndefinedCategoryId = -6;
+}
+```
+
+- `EmptyRequired` — empty value on a `required` field. Checked first.
+- `MinLengthExceeded` / `MaxLengthExceeded` — string-length bounds
+  (`config.minLength` / `config.maxLength`) violated.
+- `WrongValueFormat` — value's shape is wrong: dropdown key not in
+  `options`, integer field got a non-numeric string, date string
+  doesn't parse. Catch-all for "the input doesn't make sense for
+  this type".
+- `ComparisonFailed` — cross-value or range comparison failed
+  (numeric `min`/`max`, password-confirmation mismatch, date
+  ordering).
+- `UndefinedCategoryId` — reference-typed field (`filepicker`)
+  points at a category that doesn't exist.
+
+If none of these fit your plugin's failure mode, collapse the case
+into `WrongValueFormat` rather than inventing new ones — the shared
+vocabulary is what lets host editors map codes to localised messages
+without parsing free-text.
 
 ---
 
@@ -326,13 +352,15 @@ on any new `Field` going forward. There's nothing else to wire — the
 storage layer reads the type's `name()` from `fields.type` and looks
 it up in the registry whenever a value flows through `validate()`.
 
-A full walk-through (host editor wiring, validation patterns,
-testing strategies) will land in the `docs/field-types.md` cookbook.
+A full walk-through (validation patterns, rendering patterns, an
+end-to-end custom plugin, testing, registration) is in the
+[Field-types cookbook](../field-types.md).
 
 ---
 
 ## Related
 
+- Step-by-step how-to for writing custom types: [Field-types cookbook](../field-types.md).
 - Where the schema for fields lives: [Storage > FieldRepository](storage.md#fieldrepository).
 - The `Item::$data` payload that types validate against: [Domain > Item](domain.md#item).
 - How validation failures surface: [Storage > Exception hierarchy](storage.md#exception-hierarchy).
