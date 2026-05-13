@@ -21,6 +21,7 @@
                 as data, not code.
             -->
             <directory name="tests/Fixtures/v1" />
+            <directory name="tests/Fixtures/v1-references" />
         </ignoreFiles>
     </projectFiles>
 

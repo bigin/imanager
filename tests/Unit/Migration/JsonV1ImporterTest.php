@@ -155,6 +155,228 @@ final class JsonV1ImporterTest extends TestCase
         self::assertStringContainsString('2 items', $summary);
     }
 
+    // -----------------------------------------------------------------
+    // Remap pass — `$remapFields` argument on import()
+    // -----------------------------------------------------------------
+
+    public function testWithoutRemapItemReferencesStayAtOldIds(): void
+    {
+        $fixture = \dirname(__DIR__, 2) . '/Fixtures/v1-references';
+        $report = $this->importer->import($fixture);
+
+        self::assertSame(3, $report->itemsImported);
+        self::assertSame(0, $report->itemsRemapped);
+
+        // The fixture's parent values (100, 200) are *old* item ids — the
+        // new storage assigns 1, 2, 3 via AUTOINCREMENT. Without a remap
+        // pass, the stored parent stays at the dangling old value.
+        $pages = $this->storage->categories()->findBySlug('pages');
+        \assert($pages !== null && $pages->id !== null);
+        $items = $this->byName($this->storage->items()->findByCategory($pages->id));
+
+        self::assertSame(0, (int) $items['root']->data->get('parent'));
+        self::assertSame(100, (int) $items['child']->data->get('parent'));
+        self::assertSame(200, (int) $items['grandchild']->data->get('parent'));
+    }
+
+    public function testRemapRewritesSelfReferentialParentField(): void
+    {
+        $fixture = \dirname(__DIR__, 2) . '/Fixtures/v1-references';
+        $report = $this->importer->import(
+            $fixture,
+            remapFields: ['pages' => ['parent' => 'pages']],
+        );
+
+        self::assertSame(3, $report->itemsImported);
+        // Two rewrites: child → root's new id, grandchild → child's new id.
+        // The root item's parent is 0 (the standard root sentinel) and is
+        // left alone.
+        self::assertSame(2, $report->itemsRemapped);
+
+        $pages = $this->storage->categories()->findBySlug('pages');
+        \assert($pages !== null && $pages->id !== null);
+        $items = $this->byName($this->storage->items()->findByCategory($pages->id));
+
+        $rootNewId  = $items['root']->id ?? 0;
+        $childNewId = $items['child']->id ?? 0;
+
+        self::assertSame(0, (int) $items['root']->data->get('parent'));
+        self::assertSame($rootNewId, (int) $items['child']->data->get('parent'));
+        self::assertSame($childNewId, (int) $items['grandchild']->data->get('parent'));
+    }
+
+    public function testRemapWithUnknownCategoryEmitsWarningWithoutErroring(): void
+    {
+        $fixture = \dirname(__DIR__, 2) . '/Fixtures/v1-references';
+        $report = $this->importer->import(
+            $fixture,
+            remapFields: ['nope' => ['parent' => 'pages']],
+        );
+
+        self::assertFalse($report->hasErrors());
+        self::assertSame(0, $report->itemsRemapped);
+        self::assertNotEmpty($report->warnings);
+        self::assertStringContainsString('nope', implode(' | ', $report->warnings));
+    }
+
+    public function testRemapWithDanglingOldIdEmitsWarningAndLeavesValueAlone(): void
+    {
+        // Fabricate an extra item whose parent points at an old id no
+        // other item carries. The remap pass should warn and leave the
+        // value untouched rather than blanking it.
+        $tempFixture = $this->makeReferencesFixtureWithExtra('orphan', oldParent: 999);
+        try {
+            $report = (new JsonV1Importer(new V1FileParser(), SqliteStorageFactory::inMemory()))
+                ->import($tempFixture, remapFields: ['pages' => ['parent' => 'pages']]);
+
+            self::assertFalse($report->hasErrors());
+            self::assertNotEmpty($report->warnings);
+            self::assertStringContainsString('999', implode(' | ', $report->warnings));
+            self::assertStringContainsString('no new mapping', implode(' | ', $report->warnings));
+        } finally {
+            $this->cleanDir($tempFixture);
+        }
+    }
+
+    public function testRemapDryRunRollsBackTheRewrites(): void
+    {
+        $fixture = \dirname(__DIR__, 2) . '/Fixtures/v1-references';
+        $report = $this->importer->import(
+            $fixture,
+            dryRun: true,
+            remapFields: ['pages' => ['parent' => 'pages']],
+        );
+
+        self::assertTrue($report->rolledBack);
+        self::assertSame(2, $report->itemsRemapped);
+        // Nothing committed.
+        self::assertSame([], $this->storage->categories()->findAll());
+    }
+
+    /**
+     * @param list<\Imanager\Domain\Item> $items
+     *
+     * @return array<string, \Imanager\Domain\Item>
+     */
+    private function byName(array $items): array
+    {
+        $out = [];
+        foreach ($items as $item) {
+            if ($item->name !== null) {
+                $out[$item->name] = $item;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Builds a copy of the references fixture in a temp dir, with one
+     * extra item appended to the items file whose `parent` points at
+     * `$oldParent`. Returns the temp source-dir path.
+     */
+    private function makeReferencesFixtureWithExtra(string $extraName, int $oldParent): string
+    {
+        $src = \dirname(__DIR__, 2) . '/Fixtures/v1-references';
+        $dst = sys_get_temp_dir() . '/imanager-remap-' . uniqid();
+        $this->copyDirRecursively($src, $dst);
+
+        $itemsFile = $dst . '/datasets/buffers/items/1.items.php';
+        $rewritten = $this->itemsFileWithExtra($extraName, $oldParent);
+        file_put_contents($itemsFile, $rewritten);
+
+        return $dst;
+    }
+
+    private function itemsFileWithExtra(string $extraName, int $oldParent): string
+    {
+        return <<<PHP
+        <?php return array (
+          100 =>
+          \\Scriptor\\Core\\Page::__set_state(array(
+             'categoryid' => 1,
+             'id' => 100,
+             'name' => 'root',
+             'label' => NULL,
+             'position' => 1,
+             'active' => true,
+             'created' => 1519052101,
+             'updated' => 1696768396,
+             'slug' => 'root',
+             'parent' => 0,
+             'content' => 'Top-level page.',
+          )),
+          200 =>
+          \\Scriptor\\Core\\Page::__set_state(array(
+             'categoryid' => 1,
+             'id' => 200,
+             'name' => 'child',
+             'label' => NULL,
+             'position' => 2,
+             'active' => true,
+             'created' => 1519052200,
+             'updated' => 1519052200,
+             'slug' => 'child',
+             'parent' => 100,
+             'content' => 'Child of root.',
+          )),
+          300 =>
+          \\Scriptor\\Core\\Page::__set_state(array(
+             'categoryid' => 1,
+             'id' => 300,
+             'name' => 'grandchild',
+             'label' => NULL,
+             'position' => 3,
+             'active' => true,
+             'created' => 1519052300,
+             'updated' => 1519052300,
+             'slug' => 'grandchild',
+             'parent' => 200,
+             'content' => 'Child of child.',
+          )),
+          400 =>
+          \\Scriptor\\Core\\Page::__set_state(array(
+             'categoryid' => 1,
+             'id' => 400,
+             'name' => '{$extraName}',
+             'label' => NULL,
+             'position' => 99,
+             'active' => true,
+             'created' => 1519052999,
+             'updated' => 1519052999,
+             'slug' => '{$extraName}',
+             'parent' => {$oldParent},
+             'content' => 'orphan content',
+          )),
+        ); ?>
+
+        PHP;
+    }
+
+    private function copyDirRecursively(string $src, string $dst): void
+    {
+        if (! is_dir($dst)) {
+            mkdir($dst, 0o755, true);
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+        foreach ($iterator as $entry) {
+            if (! $entry instanceof \SplFileInfo) {
+                continue;
+            }
+            $relative = substr($entry->getPathname(), \strlen($src) + 1);
+            $target = $dst . '/' . $relative;
+            if ($entry->isDir()) {
+                if (! is_dir($target)) {
+                    mkdir($target, 0o755, true);
+                }
+            } else {
+                copy($entry->getPathname(), $target);
+            }
+        }
+    }
+
     private function cleanDir(string $dir): void
     {
         if (! is_dir($dir)) {

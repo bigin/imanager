@@ -16,6 +16,7 @@ final class ImportReport
     public int $categoriesImported = 0;
     public int $fieldsImported = 0;
     public int $itemsImported = 0;
+    public int $itemsRemapped = 0;
     public int $assetsCopied = 0;
     public bool $rolledBack = false;
 
@@ -42,12 +43,16 @@ final class ImportReport
 
     public function summary(): string
     {
+        $remappedSuffix = $this->itemsRemapped > 0
+            ? \sprintf(', remapped %d item reference(s)', $this->itemsRemapped)
+            : '';
         return \sprintf(
-            'Imported %d categories, %d fields, %d items; copied %d assets; %d errors, %d warnings%s',
+            'Imported %d categories, %d fields, %d items; copied %d assets%s; %d errors, %d warnings%s',
             $this->categoriesImported,
             $this->fieldsImported,
             $this->itemsImported,
             $this->assetsCopied,
+            $remappedSuffix,
             \count($this->errors),
             \count($this->warnings),
             $this->rolledBack ? ' (rolled back: dry run or fatal error)' : '',

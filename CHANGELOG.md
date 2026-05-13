@@ -215,3 +215,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EmptyRequired`, `MinLengthExceeded`, `MaxLengthExceeded`,
   `WrongValueFormat`, `ComparisonFailed`, `UndefinedCategoryId`.
   Reference now quotes the enum verbatim.
+
+### Phase 17 prep — deferred fixes
+
+- `fix(migration): re-map cross-item id references via
+  --remap-fields` — `migrate:from-v1` now accepts a JSON config
+  declaring `{ categorySlug: { fieldName: targetCategorySlug } }`.
+  After the standard import pass, the importer walks each declared
+  field and rewrites stored values from old item ids to the new ids
+  assigned during the import — the canonical self-referential
+  `parent` field on a tree of items now round-trips cleanly. The
+  remap runs inside the same transaction as the rest of the import,
+  preserves the `0` root sentinel, skips non-numeric values, warns
+  on dangling pointers, and is idempotent against already-mapped
+  data. `ImportReport` gains an `itemsRemapped` counter that
+  surfaces in the CLI report. Replaces the SQL-`json_set`
+  workaround documented in `migration-guide.md`.

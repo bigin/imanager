@@ -78,6 +78,7 @@ Expected output (numbers will differ for your install):
  Source:        ./data
  Target DB:     ./data-new/imanager.db
  Upload target: ./data-new/uploads
+ Remap fields:  (none)
 
  ! [NOTE] Applied 4 schema migration(s) to target
 
@@ -87,6 +88,7 @@ Expected output (numbers will differ for your install):
  Categories  : 2
  Fields      : 10
  Items       : 9
+ Remapped    : 0
  Assets      : 12
  Errors      : 0
  Warnings    : 0
@@ -94,6 +96,12 @@ Expected output (numbers will differ for your install):
 
  [OK] Imported 2 categories, 10 fields, 9 items, 12 assets (rolled back)
 ```
+
+> If your install has cross-item id references (the typical case is
+> a self-referential `parent` field on a tree-shaped category), drop
+> a JSON config and re-run the dry run with `--remap-fields`. See
+> [Re-mapping cross-item id references](#re-mapping-cross-item-id-references---remap-fields)
+> below.
 
 **If `Errors > 0`** — read the `Errors` section the CLI prints and fix
 the source data first. Common causes are listed under
@@ -179,43 +187,80 @@ design.
 
 ---
 
-## Known issues
+## Re-mapping cross-item id references (`--remap-fields`)
 
-### Parent / cross-item id references are not re-mapped
+The CLI **renumbers** item IDs as it imports — the new SQLite ID is
+not the same as the 1.x ID. By default, item-id references stored
+inside field values (e.g. a `parent` field whose value is the old
+ID of another item) keep the **old** value after migration, which
+leaves a dangling pointer.
 
-The CLI **renumbers** item IDs as it imports (the new SQLite ID is
-not the same as the 1.x ID). Today it does **not** rewrite cross-item
-ID references stored inside field values — for example a `parent`
-field whose value is the old ID of another item will keep that old
-ID after migration, even though the referenced item now has a
-different ID in 2.0.
+The canonical case is a self-referential `parent` field on a tree
+of items (pages, categories, comments). To rewrite those references
+to the new IDs, pass `--remap-fields` with a small JSON config
+file:
 
-Symptom: an item ends up pointing at the wrong sibling, or at itself
-(self-parent) when the old ID happened to be re-used by a different
-item.
+```json
+{
+    "pages":    { "parent": "pages" },
+    "comments": { "post":   "blog"  }
+}
+```
 
-Workaround until the forward fix lands:
+The shape is `categorySlug → fieldName → targetCategorySlug`.
+Reads as: "in the `pages` category, the `parent` field's value is
+an item id in the `pages` category". Run:
 
-1. After migration, find affected fields. Anything whose values are
-   numeric IDs of other items in the same table is a candidate — the
-   canonical case is a self-referential `parent` field on a tree of
-   items (pages, categories, comments).
-2. Build the mapping `1.x-id → 2.0-id` by reading
-   `data/datasets/buffers/items/<cat>.items.php` for the
-   per-category old IDs and joining against the new IDs by `slug` or
-   `name`.
-3. Patch the affected JSON values via SQL, e.g.:
+```bash
+vendor/bin/imanager migrate:from-v1 \
+  --source ./data \
+  --target ./data-new/imanager.db \
+  --remap-fields ./remap.json
+```
 
-   ```sql
-   UPDATE items
-   SET data = json_set(data, '$.parent', <new_id>)
-   WHERE id = <affected_item_id>;
-   ```
+The importer:
 
-A forward fix in `JsonV1Importer` (the importer will keep a
-deferred-resolution table during the walk and rewrite known
-id-typed fields in a final pass) is on the roadmap before the 2.0
-Packagist release.
+1. Imports categories, fields, items as usual — recording the
+   per-category `old item id → new item id` map along the way.
+2. After all items are inserted, walks the items in each
+   `categorySlug` declared in the config; for each `fieldName`, it
+   reads the (still-old) value and rewrites it to the new id using
+   the recorded map of `targetCategorySlug`.
+3. Reports the number of rewrites in the `Remapped` row of the
+   final report.
+
+Both passes run inside one SQLite transaction — a failure in the
+remap rolls the whole migration back, same as any other import
+error.
+
+### Values left untouched
+
+The remap pass deliberately preserves:
+
+- **`0` (or `'0'`, or `null`, or `''`)** — the canonical "no
+  parent / root" sentinel for tree-shaped data.
+- **Non-numeric values** — anything that doesn't coerce to a
+  positive integer is skipped (no false-positives on accidental
+  matches).
+- **Already-correct values** — re-running the remap against
+  already-mapped data is a no-op.
+
+### Dangling references
+
+If a field value points at an old id that the new database doesn't
+carry (because the referenced item was missing from the source, or
+the source data was inconsistent), the importer **leaves the value
+in place** and adds a warning to the final report. It's an
+informational signal, not a fatal error — the value rounds back to
+the old id, the same shape your data had before.
+
+### When you don't need this
+
+If your 1.x install has no cross-item id references in any field
+values, the flag is unnecessary — omit it and the second pass is
+skipped entirely. Most simple flat-file installs fall into this
+bucket. The remap is a forward-fix for the **tree-shaped /
+relational** subset of 1.x data.
 
 ---
 
