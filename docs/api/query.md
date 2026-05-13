@@ -6,6 +6,11 @@ every builder method returns a new `Query` — and it compiles down to
 a single parametrised SQL statement against the items table (using
 generated columns for hot fields, `json_extract` for cold ones).
 
+This page is the **reference**: signatures, value objects, enum
+cases. The step-by-step how-to (pagination flows, selector strings,
+FTS hand-off, performance) lives in the
+[Query cookbook](../query-cookbook.md).
+
 > Source: `src/Query/{Query,Clause,Operator,OrderBy,Direction,Pagination,SelectorParser}.php`.
 > Contract: `tests/Unit/Storage/ItemQueryContract.php`.
 
@@ -307,6 +312,7 @@ $query  = $parser->parse('active=1, position>=10')
 
 ## Related
 
+- Step-by-step recipes for building queries: [Query cookbook](../query-cookbook.md).
 - The repository that executes queries: [Storage](storage.md).
 - The domain values returned: [Domain](domain.md).
 - Free-text search (beyond the equality / range operators here):
