@@ -176,8 +176,14 @@ Available composer scripts:
 - **Master plan** (multi-phase rewrite, phase status):
   [`docs/imanager-2.0-plan.md`](docs/imanager-2.0-plan.md).
 - **Changelog**: [`CHANGELOG.md`](CHANGELOG.md).
-- API reference, migration guide (1.x → 2.0), deployment guide,
-  field-type cookbook, and query cookbook are landing during Phase 16.
+- **API reference**: [`docs/api/`](docs/api/) — index plus core
+  detail pages for Domain, Storage, Query, and Field types.
+- **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md)
+  — how-to companion to the Field-types reference.
+- **Migration guide** (1.x → 2.0):
+  [`docs/migration-guide.md`](docs/migration-guide.md).
+- Query cookbook and deployment guide land during the rest of
+  Phase 16.
 
 ---
 

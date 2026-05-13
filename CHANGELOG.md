@@ -173,3 +173,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Query (`query.md`), and Field types (`field-types.md`). Examples
   lifted from `tests/Unit/Storage/*Contract.php` so every snippet
   compiles and is exercised on CI.
+- `docs/field-types.md` — how-to cookbook companion to the
+  Field-types reference: anatomy, validation pipeline, render
+  patterns, end-to-end custom-plugin walkthrough
+  (money-with-currency), registration, testing, common pitfalls.
+- `docs: drop references to a specific consumer (Scriptor)
+  throughout` — library docs read as host-neutral; Phase 14
+  reframed as "First-Consumer-Cutover (Release-Gate)"; consumer-
+  side cutover detail plan moved out of this repo.
+- `docs(api/field-types): correct InputErrorCode case list` — the
+  initial reference page invented enum cases (`Required`,
+  `OutOfRange`, `PatternMismatch`, …); the actual enum has
+  `EmptyRequired`, `MinLengthExceeded`, `MaxLengthExceeded`,
+  `WrongValueFormat`, `ComparisonFailed`, `UndefinedCategoryId`.
+  Reference now quotes the enum verbatim.

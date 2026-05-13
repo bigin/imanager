@@ -83,11 +83,16 @@ tells you which source file to read next.
 ## Roadmap
 
 The four core pages cover the public API any application boots
-against. Still to come in Phase 16:
+against. Companion guides:
 
-- `docs/field-types.md` — **cookbook** (distinct from
-  `docs/api/field-types.md` reference): how to write a custom field
-  type end-to-end, including form rendering and validation patterns.
+- [`docs/field-types.md`](../field-types.md) — **cookbook** for
+  writing custom field types end-to-end (anatomy, validation
+  patterns, rendering patterns, registration, testing). The
+  reference page [`field-types.md`](field-types.md) is the matching
+  index.
+
+Still to come in Phase 16:
+
 - `docs/query-cookbook.md` — recipes for the `Query` builder and
   selector strings (faceted lookups, pagination flows, FTS hand-off).
 - `docs/deployment.md` — production deployment (Caddy / nginx, file
