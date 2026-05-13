@@ -26,7 +26,15 @@ final class MigrateFromV1Command extends Command
             ->addOption('source', null, InputOption::VALUE_REQUIRED, '1.x data/ directory')
             ->addOption('target', null, InputOption::VALUE_REQUIRED, 'Target SQLite database path')
             ->addOption('upload-target', null, InputOption::VALUE_OPTIONAL, 'Where to copy uploads/ (defaults to <target-dir>/uploads)')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Validate only; roll the transaction back at the end');
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Validate only; roll the transaction back at the end')
+            ->addOption(
+                'remap-fields',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Path to a JSON file declaring item-id references that need to be re-mapped after import. '
+                . 'Shape: `{ "<categorySlug>": { "<fieldName>": "<targetCategorySlug>" } }`. '
+                . 'Solves the self-referential `parent`-style field problem.',
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -54,11 +62,38 @@ final class MigrateFromV1Command extends Command
         }
         $dryRun = (bool) $input->getOption('dry-run');
 
+        $remapPath = $input->getOption('remap-fields');
+        $remapFields = [];
+        if (\is_string($remapPath) && $remapPath !== '') {
+            if (! is_file($remapPath)) {
+                $io->error(\sprintf('Remap-fields file "%s" does not exist', $remapPath));
+                return Command::FAILURE;
+            }
+            $raw = file_get_contents($remapPath);
+            if ($raw === false) {
+                $io->error(\sprintf('Cannot read remap-fields file "%s"', $remapPath));
+                return Command::FAILURE;
+            }
+            try {
+                $decoded = json_decode($raw, true, flags: \JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                $io->error(\sprintf('Remap-fields file is not valid JSON: %s', $e->getMessage()));
+                return Command::INVALID;
+            }
+            if (! \is_array($decoded)) {
+                $io->error('Remap-fields JSON must be an object at the top level');
+                return Command::INVALID;
+            }
+            /** @var array<string, array<string, string>> $decoded */
+            $remapFields = $decoded;
+        }
+
         $io->title($dryRun ? 'iManager migration — dry run' : 'iManager migration');
         $io->text([
             "Source:        {$source}",
             "Target DB:     {$target}",
             "Upload target: {$uploadTarget}",
+            'Remap fields:  ' . ($remapFields === [] ? '(none)' : (string) $remapPath),
         ]);
 
         $pdo = DatabaseFactory::connect($target);
@@ -71,13 +106,14 @@ final class MigrateFromV1Command extends Command
         $storage = DatabaseFactory::storage($pdo);
         $importer = new JsonV1Importer(new V1FileParser(), $storage);
 
-        $report = $importer->import($source, $uploadTarget, $dryRun);
+        $report = $importer->import($source, $uploadTarget, $dryRun, $remapFields);
 
         $io->section('Result');
         $io->definitionList(
             ['Categories' => (string) $report->categoriesImported],
             ['Fields'     => (string) $report->fieldsImported],
             ['Items'      => (string) $report->itemsImported],
+            ['Remapped'   => (string) $report->itemsRemapped],
             ['Assets'     => (string) $report->assetsCopied],
             ['Errors'     => (string) \count($report->errors)],
             ['Warnings'   => (string) \count($report->warnings)],

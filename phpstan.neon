@@ -9,5 +9,6 @@ parameters:
         # (Imanager\Category, Scriptor\Core\Page, …) that don't exist in
         # this repo by design; the V1FileParser reads them as data, not code.
         - tests/Fixtures/v1
+        - tests/Fixtures/v1-references
     tmpDir: .phpstan.cache
     treatPhpDocTypesAsCertain: false

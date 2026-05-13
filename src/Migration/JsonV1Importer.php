@@ -65,8 +65,24 @@ final class JsonV1Importer
         private readonly Storage $storage,
     ) {}
 
-    public function import(string $sourceDir, ?string $targetUploadDir = null, bool $dryRun = false): ImportReport
-    {
+    /**
+     * @param array<string, array<string, string>> $remapFields
+     *                                                          Optional id-remap declaration, shape `categorySlug => fieldName
+     *                                                          => targetCategorySlug`. After the standard item-import pass, the
+     *                                                          importer walks every item in `categorySlug` and, for each
+     *                                                          declared `fieldName`, treats the stored value as an old item id
+     *                                                          from `targetCategorySlug` and rewrites it to the new id assigned
+     *                                                          during this import. Solves the canonical "self-referential parent
+     *                                                          field" problem (the 1.x value is the old item id; without the
+     *                                                          remap that pointer ends up dangling in 2.0). Empty array (the
+     *                                                          default) skips the second pass entirely.
+     */
+    public function import(
+        string $sourceDir,
+        ?string $targetUploadDir = null,
+        bool $dryRun = false,
+        array $remapFields = [],
+    ): ImportReport {
         $report = new ImportReport();
 
         $categoriesFile = $sourceDir . '/datasets/buffers/categories/categories.php';
@@ -75,10 +91,14 @@ final class JsonV1Importer
             return $report;
         }
 
-        $work = function () use ($sourceDir, $categoriesFile, $targetUploadDir, $report): void {
-            $categoryIdMap = $this->importCategories($categoriesFile, $report);
+        $work = function () use ($sourceDir, $categoriesFile, $targetUploadDir, $remapFields, $report): void {
+            $categoryIdMap   = $this->importCategories($categoriesFile, $report);
+            $categorySlugMap = $this->buildCategorySlugMap($categoryIdMap);
             $this->importFields($sourceDir, $categoryIdMap, $report);
-            $this->importItems($sourceDir, $categoryIdMap, $report);
+            $itemIdMaps = $this->importItems($sourceDir, $categoryIdMap, $report);
+            if ($remapFields !== []) {
+                $this->remapItemReferences($remapFields, $categorySlugMap, $itemIdMaps, $report);
+            }
             if ($targetUploadDir !== null) {
                 $this->copyUploads($sourceDir . '/uploads', $targetUploadDir, $report);
             }
@@ -238,10 +258,14 @@ final class JsonV1Importer
 
     /**
      * @param array<int, int> $categoryIdMap
+     *
+     * @return array<int, array<int, int>> newCategoryId → (oldItemId → newItemId)
      */
-    private function importItems(string $sourceDir, array $categoryIdMap, ImportReport $report): void
+    private function importItems(string $sourceDir, array $categoryIdMap, ImportReport $report): array
     {
+        $itemIdMaps = [];
         foreach ($categoryIdMap as $oldCategoryId => $newCategoryId) {
+            $itemIdMaps[$newCategoryId] = [];
             $itemsFile = \sprintf('%s/datasets/buffers/items/%d.items.php', $sourceDir, $oldCategoryId);
             if (! is_file($itemsFile)) {
                 continue;
@@ -262,15 +286,21 @@ final class JsonV1Importer
                     ));
                     continue;
                 }
-                $this->importOneItem($newCategoryId, (string) $oldId, $row, $report);
+                $newId = $this->importOneItem($newCategoryId, (string) $oldId, $row, $report);
+                if ($newId !== null && \is_int($oldId)) {
+                    $itemIdMaps[$newCategoryId][$oldId] = $newId;
+                }
             }
         }
+        return $itemIdMaps;
     }
 
     /**
      * @param array<string, mixed> $row
+     *
+     * @return int|null the new id assigned by storage, or null on failure
      */
-    private function importOneItem(int $newCategoryId, string $oldId, array $row, ImportReport $report): void
+    private function importOneItem(int $newCategoryId, string $oldId, array $row, ImportReport $report): ?int
     {
         $data = [];
         foreach ($row as $k => $v) {
@@ -293,8 +323,9 @@ final class JsonV1Importer
                 created: (int) ($row['created'] ?? 0),
                 updated: (int) ($row['updated'] ?? 0),
             );
-            $this->storage->items()->save($item);
+            $saved = $this->storage->items()->save($item);
             $report->itemsImported++;
+            return $saved->id;
         } catch (\Throwable $e) {
             $report->addError(\sprintf(
                 'Item %s in category %d: %s',
@@ -302,6 +333,147 @@ final class JsonV1Importer
                 $newCategoryId,
                 $e->getMessage(),
             ));
+            return null;
+        }
+    }
+
+    /**
+     * Builds `categorySlug → newCategoryId` from the already-imported
+     * categories. Used by the remap pass so callers can address categories
+     * by their (stable) slug rather than the ephemeral new SQLite id.
+     *
+     * @param array<int, int> $categoryIdMap old categoryId → new categoryId
+     *
+     * @return array<string, int> categorySlug → new categoryId
+     */
+    private function buildCategorySlugMap(array $categoryIdMap): array
+    {
+        $slugMap = [];
+        foreach ($categoryIdMap as $newId) {
+            foreach ($this->storage->categories()->findAll() as $cat) {
+                if ($cat->id === $newId) {
+                    $slugMap[$cat->slug] = $newId;
+                    break;
+                }
+            }
+        }
+        return $slugMap;
+    }
+
+    /**
+     * Second-pass id remap. For every entry in `$remap`, walks the host
+     * category's items, finds the named field's value, looks it up in the
+     * referenced category's old→new id map, and rewrites in place. Runs
+     * inside the import transaction, so a remap failure rolls everything
+     * back together with the rest of the import.
+     *
+     * Values left untouched in three cases:
+     *  - the raw value is `null`, `''`, or numerically zero (typical "root"
+     *    sentinel for self-referential parent fields);
+     *  - the old id isn't in the reference category's map (dangling
+     *    pointer — a warning is recorded);
+     *  - the value, coerced to int, already equals the new id (idempotent
+     *    re-runs against an already-remapped DB are a no-op).
+     *
+     * @param array<string, array<string, string>> $remap         categorySlug → fieldName → targetCategorySlug
+     * @param array<string, int>                   $categorySlugs categorySlug → newCategoryId
+     * @param array<int, array<int, int>>          $itemIdMaps    newCategoryId → (oldItemId → newItemId)
+     */
+    private function remapItemReferences(
+        array $remap,
+        array $categorySlugs,
+        array $itemIdMaps,
+        ImportReport $report,
+    ): void {
+        foreach ($remap as $hostSlug => $fieldMap) {
+            $hostCategoryId = $categorySlugs[$hostSlug] ?? null;
+            if ($hostCategoryId === null) {
+                $report->addWarning(\sprintf(
+                    'Remap: unknown category slug "%s" — skipping its field map',
+                    $hostSlug,
+                ));
+                continue;
+            }
+            if (! \is_array($fieldMap)) {
+                $report->addWarning(\sprintf(
+                    'Remap: entry for "%s" is not a field map (got %s) — skipping',
+                    $hostSlug,
+                    get_debug_type($fieldMap),
+                ));
+                continue;
+            }
+
+            foreach ($fieldMap as $fieldName => $refSlug) {
+                $refCategoryId = $categorySlugs[(string) $refSlug] ?? null;
+                if ($refCategoryId === null) {
+                    $report->addWarning(\sprintf(
+                        'Remap: unknown reference-category slug "%s" for %s.%s — skipping',
+                        (string) $refSlug,
+                        $hostSlug,
+                        (string) $fieldName,
+                    ));
+                    continue;
+                }
+                $refIdMap = $itemIdMaps[$refCategoryId] ?? [];
+                $this->remapOneField(
+                    (string) $fieldName,
+                    $hostCategoryId,
+                    $refIdMap,
+                    $report,
+                );
+            }
+        }
+    }
+
+    /**
+     * @param array<int, int> $refIdMap oldItemId → newItemId in the referenced category
+     */
+    private function remapOneField(
+        string $fieldName,
+        int $hostCategoryId,
+        array $refIdMap,
+        ImportReport $report,
+    ): void {
+        foreach ($this->storage->items()->findByCategory($hostCategoryId) as $item) {
+            $raw = $item->data->get($fieldName);
+            if ($raw === null || $raw === '' || $raw === 0 || $raw === '0') {
+                continue;
+            }
+            if (! is_numeric($raw)) {
+                continue;
+            }
+            $oldId = (int) $raw;
+            if ($oldId <= 0) {
+                continue;
+            }
+            if (! isset($refIdMap[$oldId])) {
+                $report->addWarning(\sprintf(
+                    'Remap: item %d "%s".%s points at old id %d that has no new mapping — leaving as-is',
+                    $item->id ?? 0,
+                    $item->name ?? '',
+                    $fieldName,
+                    $oldId,
+                ));
+                continue;
+            }
+            $newId = $refIdMap[$oldId];
+            if ($newId === $oldId) {
+                continue;
+            }
+
+            $rewritten = $item->data->with($fieldName, $newId);
+            $this->storage->items()->save(new Item(
+                id: $item->id,
+                categoryId: $item->categoryId,
+                name: $item->name,
+                label: $item->label,
+                position: $item->position,
+                active: $item->active,
+                data: $rewritten,
+                created: $item->created,
+                updated: $item->updated,
+            ));
+            $report->itemsRemapped++;
         }
     }
 
