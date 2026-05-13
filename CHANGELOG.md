@@ -184,6 +184,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Pagination`, selector strings, FTS hand-off pattern, and a
   performance section covering hot/cold fields, wildcard cost,
   offset depth, and partial indexes.
+- `docs/deployment.md` — production deployment guide: host
+  requirements, recommended `var/{data,uploads,cache}` filesystem
+  layout, copy-pasteable Caddy and nginx + PHP-FPM configs, a
+  starter production Dockerfile (PHP 8.3-FPM-Alpine with
+  production opcache + composer install), SQLite-at-runtime notes
+  (the four PRAGMAs the library applies on connect; WAL
+  sidecars), backup strategy with `sqlite3 .backup`, scheduled
+  maintenance (`optimize` weekly, `optimize --vacuum` quarterly,
+  `repair` monthly), PSR-3 logger hookup, and a pre-launch
+  checklist.
 - `docs: drop references to a specific consumer (Scriptor)
   throughout` — library docs read as host-neutral; Phase 14
   reframed as "First-Consumer-Cutover (Release-Gate)"; consumer-

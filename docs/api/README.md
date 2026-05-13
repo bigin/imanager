@@ -94,11 +94,11 @@ against. Companion guides:
   for the `Query` builder: predicate recipes, pagination flows,
   selector strings, full-text-search hand-off, performance.
   Matching reference page: [`query.md`](query.md).
-
-Still to come in Phase 16:
-
-- `docs/deployment.md` — production deployment (Caddy / nginx, file
-  permissions, backup, scheduled `optimize`).
+- [`docs/deployment.md`](../deployment.md) — **deployment guide**:
+  host requirements, filesystem layout, Caddy / nginx + PHP-FPM
+  configs, a production Dockerfile, SQLite at runtime (WAL files,
+  backups), scheduled maintenance, logging hookup, production
+  checklist.
 
 The smaller subsystems (Cache, Templating, Http, Events, Validation)
 will get their own reference pages **only if** non-trivial host
