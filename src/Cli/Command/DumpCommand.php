@@ -40,9 +40,10 @@ final class DumpCommand extends Command
             if ($createSql === null) {
                 continue;
             }
+            $isVirtual = self::startsWithCi($createSql, 'CREATE VIRTUAL TABLE');
             $output->writeln('-- Table: ' . $table);
             $output->writeln($createSql . ';');
-            foreach (self::rows($pdo, $table) as $row) {
+            foreach (self::rows($pdo, $table, $isVirtual) as $row) {
                 $output->writeln(self::insertStatement($pdo, $table, $row));
             }
             $output->writeln('');
@@ -53,26 +54,71 @@ final class DumpCommand extends Command
     }
 
     /**
+     * Returns user-relevant table names: regular tables + virtual tables
+     * (FTS5, RTREE, …) — but not the shadow tables a virtual-table module
+     * auto-creates next to its parent (e.g. for an FTS5 table named
+     * `items_fts`: `items_fts_data`, `items_fts_idx`, `items_fts_config`,
+     * `items_fts_docsize`, `items_fts_content`). On the destination, the
+     * shadows are re-created automatically when the parent virtual-table
+     * CREATE runs — including them here would conflict on restore.
+     *
+     * Modern SQLite records CREATE statements for shadow tables in
+     * sqlite_master, so a `sql IS NOT NULL` filter is not enough.
+     * Instead we detect virtual-table parents first and exclude any
+     * table whose name starts with `<parent>_`.
+     *
      * @return list<string>
      */
     private static function tables(\PDO $pdo): array
     {
         $stmt = $pdo->query(
-            "SELECT name FROM sqlite_master WHERE type='table' "
+            "SELECT name, sql FROM sqlite_master WHERE type='table' "
                 . "AND name NOT LIKE 'sqlite_%' "
-                . "AND name NOT LIKE '%_fts%' "
+                . 'AND sql IS NOT NULL '
                 . 'ORDER BY name',
         );
         if ($stmt === false) {
             return [];
         }
-        $names = [];
-        foreach ($stmt->fetchAll(\PDO::FETCH_COLUMN) as $name) {
-            if (\is_string($name)) {
-                $names[] = $name;
+        /** @var list<array{name: string, sql: string}> $candidates */
+        $candidates = [];
+        $virtuals = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $name = $row['name'] ?? null;
+            $sql  = $row['sql']  ?? null;
+            if (! \is_string($name) || ! \is_string($sql)) {
+                continue;
+            }
+            $candidates[] = ['name' => $name, 'sql' => $sql];
+            if (self::startsWithCi($sql, 'CREATE VIRTUAL TABLE')) {
+                $virtuals[] = $name;
             }
         }
+
+        $names = [];
+        foreach ($candidates as $row) {
+            if (self::isVirtualShadow($row['name'], $virtuals)) {
+                continue;
+            }
+            $names[] = $row['name'];
+        }
         return $names;
+    }
+
+    /**
+     * @param list<string> $virtuals
+     */
+    private static function isVirtualShadow(string $name, array $virtuals): bool
+    {
+        foreach ($virtuals as $virtual) {
+            if ($name === $virtual) {
+                return false;
+            }
+            if (str_starts_with($name, $virtual . '_')) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function createSql(\PDO $pdo, string $table): ?string
@@ -88,9 +134,17 @@ final class DumpCommand extends Command
     /**
      * @return iterable<array<string, mixed>>
      */
-    private static function rows(\PDO $pdo, string $table): iterable
+    private static function rows(\PDO $pdo, string $table, bool $isVirtual): iterable
     {
-        $stmt = $pdo->query('SELECT * FROM ' . self::quoteIdentifier($table));
+        // Virtual tables (FTS5, RTREE, …) hide their primary key behind the
+        // implicit `rowid`, which `SELECT *` does not include. Without it
+        // the dump round-trip would lose the link between e.g. items_fts
+        // rows and the items they index. Regular tables expose their
+        // INTEGER PRIMARY KEY through `*` so don't need the extra column.
+        $sql = $isVirtual
+            ? 'SELECT rowid AS rowid, * FROM ' . self::quoteIdentifier($table)
+            : 'SELECT * FROM ' . self::quoteIdentifier($table);
+        $stmt = $pdo->query($sql);
         if ($stmt === false) {
             return [];
         }
@@ -101,6 +155,11 @@ final class DumpCommand extends Command
             }
             yield $row;
         }
+    }
+
+    private static function startsWithCi(string $haystack, string $needle): bool
+    {
+        return strncasecmp(ltrim($haystack), $needle, \strlen($needle)) === 0;
     }
 
     /**

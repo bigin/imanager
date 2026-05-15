@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — 2026-05-15
+
+### Fixed
+
+- `imanager dump` silently skipped FTS5 virtual tables. The dump
+  emitted `schema_version` rows for the FTS migration but no
+  `CREATE VIRTUAL TABLE items_fts` statement, so a freshly restored
+  database had no `items_fts` table — and the next item write blew
+  up with `SQLSTATE[HY000]: General error: 1 no such table: items_fts`.
+  The dump now includes the parent virtual-table CREATE plus its rows
+  (preserving `rowid`, which links FTS entries to their items), and
+  excludes the auto-managed shadow tables (`*_data`, `*_idx`,
+  `*_config`, `*_docsize`, `*_content` for FTS5; the same
+  `<parent>_<suffix>` pattern for any future RTREE/etc. virtual
+  tables) — those re-create themselves on restore from the parent
+  CREATE.
+
 ## [2.0.0] — 2026-05-13
 
 Initial stable release of iManager as a standalone library — extracted
