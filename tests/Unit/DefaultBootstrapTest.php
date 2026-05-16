@@ -180,4 +180,36 @@ final class DefaultBootstrapTest extends TestCase
             $container->get(FieldTypeRegistry::class),
         );
     }
+
+    public function testBootCreatesMissingDirectories(): void
+    {
+        $root = sys_get_temp_dir() . '/imanager-default-bootstrap-mkdir-' . bin2hex(random_bytes(4));
+        // Deliberately no mkdir — DefaultBootstrap should create them.
+        $databasePath = $root . '/nested/data/imanager.db';
+        $uploadsPath  = $root . '/nested/uploads';
+        $cachePath    = $root . '/nested/cache';
+
+        try {
+            $container = DefaultBootstrap::boot($databasePath, $uploadsPath, '/uploads', $cachePath);
+            // Force the lazy PDO callback — opens the SQLite file in the
+            // freshly-created parent directory.
+            self::assertInstanceOf(\PDO::class, $container->get(\PDO::class));
+            self::assertDirectoryExists(\dirname($databasePath));
+            self::assertDirectoryExists($uploadsPath);
+            self::assertDirectoryExists($cachePath);
+        } finally {
+            if (! is_dir($root)) {
+                return;
+            }
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($it as $entry) {
+                $path = (string) $entry;
+                is_dir($path) ? rmdir($path) : unlink($path);
+            }
+            rmdir($root);
+        }
+    }
 }

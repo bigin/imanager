@@ -28,6 +28,15 @@ final readonly class ConnectionFactory
         try {
             $pdo = new \PDO('sqlite:' . $this->databasePath);
         } catch (\PDOException $e) {
+            $parent = \dirname($this->databasePath);
+            if ($this->databasePath !== ':memory:' && ! is_dir($parent)) {
+                throw StorageException::fromPdo($e, \sprintf(
+                    'Failed to open SQLite database at %s — parent directory %s does not exist (SQLite creates the .db file, not its directory). Create it first (e.g. `mkdir -p %s`) or boot via Imanager\\DefaultBootstrap, which mkdirs on your behalf.',
+                    $this->databasePath,
+                    $parent,
+                    $parent,
+                ));
+            }
             throw StorageException::fromPdo($e, 'Failed to open SQLite database');
         }
 

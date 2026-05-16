@@ -48,4 +48,18 @@ final class ConnectionFactoryTest extends TestCase
         $this->expectException(StorageException::class);
         $factory->create();
     }
+
+    public function testMissingParentDirectoryMessageNamesTheDirAndHintsAtMkdir(): void
+    {
+        $path = '/this/path/cannot/exist/imanager.db';
+
+        try {
+            (new ConnectionFactory($path))->create();
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('/this/path/cannot/exist', $e->getMessage());
+            self::assertStringContainsString('mkdir -p', $e->getMessage());
+            self::assertStringContainsString('DefaultBootstrap', $e->getMessage());
+        }
+    }
 }
