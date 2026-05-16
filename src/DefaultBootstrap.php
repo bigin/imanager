@@ -106,6 +106,16 @@ final class DefaultBootstrap
         $csrfMaxTokens   = $options['csrfMaxTokens']   ?? 10;
         $schemaDir       = $options['schemaDir']       ?? \dirname(__DIR__) . '/config/schema';
 
+        // Ensure the directories the standard services write to exist —
+        // SQLite creates the .db file but not its parent, and the cache
+        // and upload stores assume their roots are already there. Hosts
+        // that hand-wire via Bootstrap::boot() keep full control of dir
+        // lifecycle; this convenience is specific to the copy-paste
+        // factory.
+        self::ensureDirectory(\dirname($databasePath), 'database parent');
+        self::ensureDirectory($uploadsPath, 'uploads');
+        self::ensureDirectory($cachePath, 'cache');
+
         $container = Bootstrap::boot($configOverrides);
 
         $container->addShared(\PDO::class, static function () use ($databasePath, $schemaDir): \PDO {
@@ -186,4 +196,23 @@ final class DefaultBootstrap
     }
 
     private function __construct() {}
+
+    private static function ensureDirectory(string $path, string $purpose): void
+    {
+        // `:memory:` short-circuit, plus the cwd-shaped paths dirname()
+        // hands back for bare filenames — those need no mkdir.
+        if ($path === '' || $path === '.' || $path === ':memory:') {
+            return;
+        }
+        if (is_dir($path)) {
+            return;
+        }
+        if (! @mkdir($path, 0775, true) && ! is_dir($path)) {
+            throw new \RuntimeException(\sprintf(
+                'DefaultBootstrap could not create the %s directory at %s. Create it manually, fix the parent permissions, or wire services via Imanager\\Bootstrap::boot() (which leaves directory lifecycle to the host).',
+                $purpose,
+                $path,
+            ));
+        }
+    }
 }
