@@ -1,6 +1,6 @@
 <?php return array (
   100 =>
-  \Scriptor\Core\Page::__set_state(array(
+  \LegacyHost\Page::__set_state(array(
      'categoryid' => 1,
      'id' => 100,
      'name' => 'root',
@@ -14,7 +14,7 @@
      'content' => 'Top-level page.',
   )),
   200 =>
-  \Scriptor\Core\Page::__set_state(array(
+  \LegacyHost\Page::__set_state(array(
      'categoryid' => 1,
      'id' => 200,
      'name' => 'child',
@@ -28,7 +28,7 @@
      'content' => 'Child of root.',
   )),
   300 =>
-  \Scriptor\Core\Page::__set_state(array(
+  \LegacyHost\Page::__set_state(array(
      'categoryid' => 1,
      'id' => 300,
      'name' => 'grandchild',

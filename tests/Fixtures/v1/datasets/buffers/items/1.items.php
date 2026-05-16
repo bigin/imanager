@@ -1,6 +1,6 @@
 <?php return array (
   1 =>
-  \Scriptor\Core\Page::__set_state(array(
+  \LegacyHost\Page::__set_state(array(
      'categoryid' => 1,
      'id' => 1,
      'name' => 'Demo Page',
@@ -14,7 +14,7 @@
      'images' => NULL,
   )),
   2 =>
-  \Scriptor\Core\Page::__set_state(array(
+  \LegacyHost\Page::__set_state(array(
      'categoryid' => 1,
      'id' => 2,
      'name' => 'About',
