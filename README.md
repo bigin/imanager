@@ -175,6 +175,10 @@ Available composer scripts:
 
 ## Docs
 
+- **Tutorial**: [`docs/tutorial/`](docs/tutorial/) — task-oriented
+  walkthroughs for newcomers (setup, schema design, validation, …).
+  Start here if you just installed the package and want a guided
+  path past the Quickstart.
 - **API reference**: [`docs/api/`](docs/api/) — index plus core
   detail pages for Domain, Storage, Query, and Field types.
 - **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md)
