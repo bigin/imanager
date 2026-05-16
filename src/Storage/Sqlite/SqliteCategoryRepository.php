@@ -125,6 +125,14 @@ final class SqliteCategoryRepository implements CategoryRepository
         return $updated;
     }
 
+    public function ensure(Category $category): Category
+    {
+        if ($category->id !== null) {
+            return $this->save($category);
+        }
+        return $this->findBySlug($category->slug) ?? $this->save($category);
+    }
+
     public function delete(int $id): void
     {
         $existing = $this->find($id);

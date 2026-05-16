@@ -33,6 +33,25 @@ interface CategoryRepository
     public function save(Category $category): Category;
 
     /**
+     * Insert-on-miss, return-existing-on-hit upsert by natural key (slug).
+     *
+     * - `$category->id !== null` → equivalent to {@see save()}.
+     * - `$category->id === null` → look up by `$category->slug`:
+     *   - **Hit**: returns the existing category as-is. **No update** is
+     *     performed; the input's other fields (name, position, …) are
+     *     ignored. Callers wanting upsert-with-update should do an
+     *     explicit `findBySlug()` + `save()`.
+     *   - **Miss**: inserts as if `save()` had been called.
+     *
+     * Designed for idempotent schema-setup scripts that re-run safely.
+     * Emits `CategoryCreated` only when a row is actually inserted; no
+     * event fires on the hit path.
+     *
+     * @throws StorageException On any persistence-layer failure.
+     */
+    public function ensure(Category $category): Category;
+
+    /**
      * Remove the category and cascade-delete its fields and items.
      *
      * @throws NotFoundException When no category with that id exists.

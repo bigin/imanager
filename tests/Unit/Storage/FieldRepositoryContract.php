@@ -176,4 +176,83 @@ abstract class FieldRepositoryContract extends TestCase
         $this->expectException(NotFoundException::class);
         $this->storage->fields()->delete(999);
     }
+
+    // -----------------------------------------------------------------
+    // ensure() — upsert by natural key (categoryId, name).
+    // -----------------------------------------------------------------
+
+    public function testEnsureInsertsWhenNameIsAbsent(): void
+    {
+        $inserted = $this->storage->fields()->ensure(
+            Field::text($this->categoryId, 'title', 'Title')->required(),
+        );
+
+        self::assertNotNull($inserted->id);
+        self::assertSame('title', $inserted->name);
+        self::assertTrue($inserted->required);
+    }
+
+    public function testEnsureReturnsExistingWhenNameIsPresent(): void
+    {
+        $first = $this->storage->fields()->ensure(
+            Field::text($this->categoryId, 'title', 'Title'),
+        );
+
+        $second = $this->storage->fields()->ensure(
+            Field::text($this->categoryId, 'title', 'Title'),
+        );
+
+        self::assertSame($first->id, $second->id);
+        self::assertSame($first->created, $second->created);
+    }
+
+    public function testEnsureDoesNotUpdateFlagsOnHit(): void
+    {
+        $original = $this->storage->fields()->ensure(
+            Field::text($this->categoryId, 'title', 'Title'),
+        );
+
+        // Caller hands in a different label + flags; ensure() must NOT
+        // apply them — switching indexed/searchable silently would be a
+        // structural surprise.
+        $second = $this->storage->fields()->ensure(
+            Field::text($this->categoryId, 'title', 'Different Label')
+                ->required()->indexed()->searchable()->maxLength(500),
+        );
+
+        self::assertSame($original->id, $second->id);
+        self::assertSame('Title', $second->label);    // unchanged
+        self::assertFalse($second->required);         // unchanged
+        self::assertFalse($second->indexed);          // unchanged
+        self::assertFalse($second->searchable);       // unchanged
+        self::assertSame([], $second->config);        // unchanged
+    }
+
+    public function testEnsureBehavesAsSaveWhenIdIsSet(): void
+    {
+        $field = $this->storage->fields()->save(
+            Field::text($this->categoryId, 'title', 'Title'),
+        );
+        \assert($field->id !== null);
+
+        // id !== null → routes through save(), which IS an update.
+        $updated = $this->storage->fields()->ensure(
+            $field->label('Updated label')->required(),
+        );
+
+        self::assertSame($field->id, $updated->id);
+        self::assertSame('Updated label', $updated->label);
+        self::assertTrue($updated->required);
+    }
+
+    public function testEnsureIsSafeToRunRepeatedly(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->storage->fields()->ensure(
+                Field::text($this->categoryId, 'title', 'Title'),
+            );
+        }
+
+        self::assertCount(1, $this->storage->fields()->findByCategory($this->categoryId));
+    }
 }
