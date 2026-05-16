@@ -213,8 +213,9 @@ $merged = $item->data->merge(['body' => 'New body', 'active' => true]);
 
 Metadata for a binary asset attached to an item via a `fileupload`
 or `imageupload` field. The actual bytes live under the
-`FileStorage` mount (`data/uploads-2.0/<itemId>/<fieldId>/` by
-default).
+`FileStorage` mount (`<uploadsPath>/<itemId>/<fieldId>/`, where
+`uploadsPath` is the argument passed to `DefaultBootstrap::boot()`
+or the path wired into `LocalFileStorage` when hand-bootstrapping).
 
 ```php
 namespace Imanager\Domain;
