@@ -17,7 +17,7 @@ your application is shaped.
 
 ## Status
 
-**Stable** — current line **2.0.x** (latest: 2.0.1, 2026-05-15).
+**Stable** — current line **2.0.x** (latest: 2.0.2, 2026-05-16).
 
 The 1.x line (flat-file, `var_export`-based, embedded library shape)
 stays available for legacy installs; see the
@@ -59,7 +59,10 @@ $categories = $container->get(CategoryRepository::class);
 $fields     = $container->get(FieldRepository::class);
 $items      = $container->get(ItemRepository::class);
 
-// One-time setup: declare a category and its fields.
+// One-time schema setup — run from an installer / migration, not on every
+// request. Repeating these three calls against the same database raises a
+// UNIQUE-constraint error; guard them with findBySlug() / findByName() if
+// you want them to be idempotent.
 $blog = $categories->save(new Category(null, 'Blog', 'blog'));
 $fields->save(new Field(null, $blog->id, 'title', 'Title', FieldType::Text));
 $fields->save(new Field(null, $blog->id, 'body',  'Body',  FieldType::LongText));
