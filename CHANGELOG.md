@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] — 2026-05-16
+
+### Added
+
+- **`DefaultBootstrap::boot()` creates missing filesystem roots.**
+  `dirname($databasePath)`, `$uploadsPath`, and `$cachePath` are
+  `mkdir`'d recursively if they don't exist, so a fresh-project
+  copy-paste of the README quickstart no longer trips on PDO's
+  `unable to open database file` error. Hosts that hand-wire via
+  `Imanager\Bootstrap::boot()` keep full control of directory
+  lifecycle — the convenience is specific to the copy-paste factory.
+  (#40)
+
+### Fixed
+
+- **`ConnectionFactory::create()` error message names the missing
+  parent directory** and suggests `mkdir -p <dir>` (or bootstrapping
+  via `DefaultBootstrap`, which now does that itself) when the
+  SQLite open fails because the parent doesn't exist. The previous
+  error surfaced as the raw PDO "unable to open database file" —
+  opaque even to seasoned PHP devs. (#40)
+
+### Changed
+
+- **`composer.json` metadata refreshed**: dropped the stale
+  `"flat file"` keyword (2.0 has been SQLite-backed since the
+  rewrite) and the redundant self-tag `"imanager"`; replaced with
+  `sqlite`, `fts5`, `php`, `framework`, `repository-pattern`,
+  `psr-14`. `homepage` switched from a stale third-party domain to
+  the GitHub repository. (#36)
+- **README tightened**: Status section reduced to a single line plus
+  a one-sentence 1.x reference; Concepts → File now describes the
+  upload root as `<uploadsPath>/<itemId>/<fieldId>/` (the argument
+  passed to `DefaultBootstrap::boot()`) instead of a hardcoded
+  `data/uploads-2.0/...` path; "Roadmap & docs" renamed to "Docs"
+  and reordered so API reference + cookbooks + deployment lead, with
+  the multi-phase implementation plan moved to the bottom under
+  "Implementation history". (#35)
+- **README quickstart polish**: inline comments on the `Item`
+  constructor positional args call out `name` (URL-friendly
+  identifier) vs `label` (human-readable title); the read-back loop
+  echoes `$item->label` with a `// → Hello, world` trailing
+  comment so the expected output is visible at a glance. The
+  auto-mkdir paragraph notes the three filesystem roots are created
+  on first boot. (#39, #41)
+- **`docs/api/domain.md`**: `File` description switched from
+  `data/uploads-2.0/...` to `<uploadsPath>/<itemId>/<fieldId>/`,
+  aligning the API reference with the library's actual configurable
+  surface. (#42)
+- **CHANGELOG 2.0.0 history cleaned for consistency**: two upload-
+  root references switched to `<uploadsPath>/...`, and the Phase 16
+  header dropped its stale "(in progress)" parenthetical. (#38)
+
+### Removed
+
+- **All in-tree references to a specific consumer dropped.** Library
+  docs, code comments, and migration test fixtures now read as
+  host-neutral, in line with the standing independence rule that
+  iManager never names its consumers. Fixture class names
+  generalised from a real-world host's namespace to a placeholder
+  `\LegacyHost\Page`. Test surface unchanged. (#37)
+
 ## [2.0.1] — 2026-05-15
 
 ### Fixed
