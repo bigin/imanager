@@ -80,8 +80,11 @@ foreach ($items->findByCategory($blog->id) as $item) {
 ```
 
 `DefaultBootstrap` runs the SQLite schema migrations on first use, so
-the database file is created and populated automatically. Subsequent
-`composer update` runs pick up new migrations the same way.
+the database file is created and populated automatically. The three
+filesystem roots — `dirname($databasePath)`, `$uploadsPath`,
+`$cachePath` — are created on first boot if missing, so the snippet
+runs against a fresh project as-is. Subsequent `composer update` runs
+pick up new migrations the same way.
 
 Need a leaner container or want to swap PDO / FileStorage / the
 event dispatcher? Use `Imanager\Bootstrap::boot()` instead and wire
