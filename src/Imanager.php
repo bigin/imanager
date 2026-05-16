@@ -6,5 +6,9 @@ namespace Imanager;
 
 final class Imanager
 {
-    public const VERSION = '2.0.0';
+    /**
+     * Bump together with every git tag. Verified by ReleaseConsistencyTest
+     * so a forgotten bump fails CI rather than ships silently.
+     */
+    public const VERSION = '2.1.0';
 }
