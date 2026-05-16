@@ -3,8 +3,8 @@
     "description": "iManager — embeddable SQLite-backed CMF (Content Management Framework) for PHP.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["cmf", "cms", "sqlite", "flat-file", "imanager"],
-    "homepage": "https://scriptor-cms.info",
+    "keywords": ["cmf", "cms", "sqlite", "fts5", "php", "framework", "repository-pattern", "psr-14"],
+    "homepage": "https://github.com/bigin/imanager",
     "authors": [
         {
             "name": "bigin",
