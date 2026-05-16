@@ -68,14 +68,14 @@ $fields->save(new Field(null, $blog->id, 'body',  'Body',  FieldType::LongText))
 $items->save(new Item(
     null,
     $blog->id,
-    'hello-world',
-    'Hello, world',
+    'hello-world',     // name  — URL-friendly identifier
+    'Hello, world',    // label — human-readable title
     data: ['title' => 'Hello, world', 'body' => 'First post.'],
 ));
 
 // Read back.
 foreach ($items->findByCategory($blog->id) as $item) {
-    echo $item->name . "\n";
+    echo $item->label . "\n";   // → Hello, world
 }
 ```
 
