@@ -31,6 +31,14 @@ final readonly class InMemoryFieldRepository implements FieldRepository
         return $this->storage->saveField($field);
     }
 
+    public function ensure(Field $field): Field
+    {
+        if ($field->id !== null) {
+            return $this->save($field);
+        }
+        return $this->findByName($field->categoryId, $field->name) ?? $this->save($field);
+    }
+
     public function delete(int $id): void
     {
         $this->storage->deleteField($id);

@@ -133,6 +133,27 @@ final class StorageEventEmissionTest extends TestCase
         self::assertNotNull($observed, 'Listener should still see the row before the actual DELETE.');
         self::assertNull($repo->find($item->id), 'Row must be gone after delete() returns.');
     }
+
+    public function testCategoryEnsureFiresOnInsertButNotOnHit(): void
+    {
+        $this->storage->categories()->ensure(new Category(null, 'Pages', 'pages'));
+        // Second call hits an existing row — must not emit a second CategoryCreated.
+        $this->storage->categories()->ensure(new Category(null, 'Pages', 'pages'));
+
+        self::assertSame([CategoryCreated::class], $this->events->classes());
+    }
+
+    public function testFieldEnsureFiresOnInsertButNotOnHit(): void
+    {
+        $cat = $this->storage->categories()->save(new Category(null, 'Pages', 'pages'));
+        \assert($cat->id !== null);
+        $this->events->reset();
+
+        $this->storage->fields()->ensure(new Field(null, $cat->id, 'title', null, FieldType::Text));
+        $this->storage->fields()->ensure(new Field(null, $cat->id, 'title', null, FieldType::Text));
+
+        self::assertSame([FieldCreated::class], $this->events->classes());
+    }
 }
 
 /**

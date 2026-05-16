@@ -165,6 +165,14 @@ final class SqliteFieldRepository implements FieldRepository
         return $updated;
     }
 
+    public function ensure(Field $field): Field
+    {
+        if ($field->id !== null) {
+            return $this->save($field);
+        }
+        return $this->findByName($field->categoryId, $field->name) ?? $this->save($field);
+    }
+
     public function delete(int $id): void
     {
         $existing = $this->find($id);

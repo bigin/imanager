@@ -177,4 +177,77 @@ abstract class CategoryRepositoryContract extends TestCase
         self::assertNull($this->storage->fields()->find($field->id));
         self::assertNull($this->storage->items()->find($item->id));
     }
+
+    // -----------------------------------------------------------------
+    // ensure() — upsert by natural key (slug).
+    // -----------------------------------------------------------------
+
+    public function testEnsureInsertsWhenSlugIsAbsent(): void
+    {
+        $inserted = $this->storage->categories()->ensure(
+            new Category(null, 'Blog', 'blog'),
+        );
+
+        self::assertNotNull($inserted->id);
+        self::assertSame('Blog', $inserted->name);
+        self::assertSame('blog', $inserted->slug);
+    }
+
+    public function testEnsureReturnsExistingWhenSlugIsPresent(): void
+    {
+        $first = $this->storage->categories()->ensure(
+            new Category(null, 'Blog', 'blog'),
+        );
+
+        $second = $this->storage->categories()->ensure(
+            new Category(null, 'Blog', 'blog'),
+        );
+
+        self::assertSame($first->id, $second->id);
+        self::assertSame($first->created, $second->created);
+    }
+
+    public function testEnsureDoesNotUpdateOnHit(): void
+    {
+        $original = $this->storage->categories()->ensure(
+            new Category(null, 'Blog', 'blog', position: 0),
+        );
+
+        // Caller hands in a different name + position; ensure() must NOT
+        // apply them — that's the safety promise vs an implicit upsert.
+        $second = $this->storage->categories()->ensure(
+            new Category(null, 'Different Name', 'blog', position: 9),
+        );
+
+        self::assertSame($original->id, $second->id);
+        self::assertSame('Blog', $second->name);          // unchanged
+        self::assertSame(0, $second->position);           // unchanged
+    }
+
+    public function testEnsureBehavesAsSaveWhenIdIsSet(): void
+    {
+        $cat = $this->storage->categories()->save(
+            new Category(null, 'Blog', 'blog'),
+        );
+        \assert($cat->id !== null);
+
+        // id !== null → routes through save(), which IS an update.
+        $updated = $this->storage->categories()->ensure(
+            new Category($cat->id, 'Renamed', 'blog'),
+        );
+
+        self::assertSame($cat->id, $updated->id);
+        self::assertSame('Renamed', $updated->name);
+    }
+
+    public function testEnsureIsSafeToRunRepeatedly(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->storage->categories()->ensure(
+                new Category(null, 'Blog', 'blog'),
+            );
+        }
+
+        self::assertCount(1, $this->storage->categories()->findAll());
+    }
 }

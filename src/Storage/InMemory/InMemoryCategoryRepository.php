@@ -37,6 +37,14 @@ final readonly class InMemoryCategoryRepository implements CategoryRepository
         return $this->storage->saveCategory($category);
     }
 
+    public function ensure(Category $category): Category
+    {
+        if ($category->id !== null) {
+            return $this->save($category);
+        }
+        return $this->findBySlug($category->slug) ?? $this->save($category);
+    }
+
     public function delete(int $id): void
     {
         $this->storage->deleteCategory($id);
