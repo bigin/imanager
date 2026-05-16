@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-05-16
+
+Schema-setup ergonomics release. Additive only — every 2.0.x caller
+keeps working. Design spec: [`docs/imanager-2.1-plan.md`](docs/imanager-2.1-plan.md).
+
+### Added
+
+- **16 static factories on `Field`** for declarative schema setup —
+  `Field::text()`, `longText()`, `editor()`, `slug()`, `password()`,
+  `integer()`, `decimal()`, `money()`, `checkbox()`, `dropdown()`,
+  `datepicker()`, `hidden()`, `arrayList()`, `file()`, `image()`,
+  `filePicker()`. Each returns a fresh (`id = null`) `Field` with the
+  corresponding `FieldType` set and default flags. (#47)
+- **Fluent setters on `Field` — general (6)**: `required(bool=true)`,
+  `indexed(bool=true)`, `searchable(bool=true)`, `position(int)`,
+  `label(string)`, `config(array)`. Each returns a new
+  `final readonly` clone, preserving the value-object semantics. (#47)
+- **Fluent setters on `Field` — type-aware (7)**: `maxLength(int)`,
+  `minLength(int)`, `placeholder(string)`, `maxBytes(int)`,
+  `mimes(string ...)`, `options(array)`, `format(string)`. Each writes
+  one documented key into `config`; unrecognised keys are silently
+  ignored by built-in plugins, so a setter that doesn't apply to a
+  given `FieldType` is a no-op. (#47)
+- **`CategoryRepository::ensure(Category): Category`** — upsert by
+  natural key (`slug`). Insert-on-miss, return-existing-on-hit.
+  Emits `CategoryCreated` only on insert. (#48)
+- **`FieldRepository::ensure(Field): Field`** — upsert by natural key
+  `(categoryId, name)`. Same semantics as `CategoryRepository::ensure()`.
+  Emits `FieldCreated` only on insert. (#48)
+- **`docs/imanager-2.1-plan.md`** — design plan with the full surface
+  + naming rationale + open-questions log. (#46)
+
+### Fixed
+
+- **`Imanager::VERSION` is now bumped in lockstep with the git tag.**
+  Previously the constant was set to `2.0.0` at 2.0 release and never
+  moved at 2.0.1 or 2.0.2 — `vendor/bin/imanager --version` reported
+  the wrong value against any newer install. New `ReleaseConsistencyTest`
+  asserts the constant matches the top-most `[X.Y.Z]` entry in
+  CHANGELOG.md so this can't silently rot again.
+
+### Migration notes
+
+`ensure()` is a new interface method on `CategoryRepository` and
+`FieldRepository`. Direct callers of the existing methods need no
+changes. **Third-party implementers** of these interfaces (no known
+implementers in the wild as of this release) need to add `ensure()`
+— the canonical 4-line implementation is documented in the JSDoc
+of each interface method.
+
 ## [2.0.2] — 2026-05-16
 
 ### Added
