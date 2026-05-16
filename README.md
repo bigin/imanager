@@ -17,14 +17,11 @@ your application is shaped.
 
 ## Status
 
-**Stable — 2.0.0 released 2026-05-13.**
+**Stable** — current line **2.0.x** (latest: 2.0.1, 2026-05-15).
 
-iManager 2.0 is a ground-up rewrite of the 1.x library. The 2.0 line
-replaces the flat `var_export`-based persistence with SQLite (JSON
-`items.data` column + generated columns + FTS5), introduces typed
-domain models, a Repository / Query layer, a CLI tool, and a clean
-field-type plugin system. The 1.x line remains available for hosts
-still on the embedded library.
+The 1.x line (flat-file, `var_export`-based, embedded library shape)
+stays available for legacy installs; see the
+[migration guide](docs/migration-guide.md) for the upgrade path.
 
 ---
 
@@ -108,8 +105,9 @@ iManager models content as four primitives:
   `FieldValueBag` exposed as `$item->data`; hot fields are also
   promoted to SQLite generated columns for indexable queries.
 - **File** — a binary asset (upload). Files are stored under
-  `data/uploads-2.0/<itemId>/<fieldId>/`, with on-demand thumbnails
-  for image uploads under `thumbnail/<W>x<H>_<file>`.
+  `<uploadsPath>/<itemId>/<fieldId>/` (the `uploadsPath` you pass to
+  `DefaultBootstrap::boot()`), with on-demand thumbnails for image
+  uploads under `thumbnail/<W>x<H>_<file>`.
 
 Domain mutations (`*Created` / `*Updated` / `*Deleted` events) are
 published through a PSR-14 dispatcher so host applications can hook
@@ -169,11 +167,8 @@ Available composer scripts:
 
 ---
 
-## Roadmap & docs
+## Docs
 
-- **Master plan** (multi-phase rewrite, phase status):
-  [`docs/imanager-2.0-plan.md`](docs/imanager-2.0-plan.md).
-- **Changelog**: [`CHANGELOG.md`](CHANGELOG.md).
 - **API reference**: [`docs/api/`](docs/api/) — index plus core
   detail pages for Domain, Storage, Query, and Field types.
 - **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md)
@@ -186,6 +181,10 @@ Available composer scripts:
   Dockerfile, SQLite at runtime, backups, scheduled maintenance.
 - **Migration guide** (1.x → 2.0):
   [`docs/migration-guide.md`](docs/migration-guide.md).
+- **Changelog**: [`CHANGELOG.md`](CHANGELOG.md).
+- **Implementation history** — the multi-phase 1.x → 2.0 rewrite plan,
+  kept for context now that the work is done:
+  [`docs/imanager-2.0-plan.md`](docs/imanager-2.0-plan.md).
 
 ---
 
