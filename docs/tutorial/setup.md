@@ -73,7 +73,6 @@ use Imanager\DefaultBootstrap;
 use Imanager\Domain\Category;
 use Imanager\Domain\Field;
 use Imanager\Domain\Item;
-use Imanager\Enum\FieldType;
 use Imanager\Storage\CategoryRepository;
 use Imanager\Storage\FieldRepository;
 use Imanager\Storage\ItemRepository;
@@ -126,40 +125,35 @@ Categories and fields define the **shape**; items are the **content**.
 Add to `notebook.php`:
 
 ```php
-// One-time setup — re-running raises a UNIQUE-constraint error
-// because (categories.name, categories.slug) are both unique. In
-// a real app you'd run this from an install/migrate script. For
-// the tutorial, delete data/notebook.db between runs.
-$note = $categories->save(new Category(
-    id:   null,
-    name: 'Note',
-    slug: 'note',
-));
+// Idempotent — ensure() inserts on first call and returns the
+// existing row on every later call.
+$note = $categories->ensure(new Category(null, 'Note', 'note'));
 
-$fields->save(new Field(
-    id:         null,
-    categoryId: $note->id,
-    name:       'body',
-    label:      'Body',
-    type:       FieldType::LongText,
-    required:   true,
-));
+$fields->ensure(
+    Field::longText($note->id, 'body', 'Body')->required(),
+);
 ```
 
 A few things to notice:
 
-- **`id: null`** says "this is a fresh value object, not yet
-  persisted." `save()` returns a clone with `id` populated by the
-  database. You always use the returned object from then on.
+- **`ensure()` vs `save()`**: `ensure()` is upsert by natural key —
+  for categories that's the unique `slug`, for fields it's
+  `(categoryId, name)`. On a hit, the existing row is returned
+  unchanged; on a miss, a new row is inserted. `save()` is the
+  lower-level primitive that always writes (and raises a UNIQUE
+  error if you try to insert a duplicate). For schema setup,
+  `ensure()` is what you want; for runtime writes that *should*
+  fail loudly on conflict, reach for `save()`.
 - **`Category::name` vs. `slug`**: `name` is the human-facing label
   ("Note"), `slug` is the URL/JSON-stable identifier ("note"). Both
   are globally unique within the install.
-- **`Field::name` vs. `label`**: same idea, but scoped to the
-  category. `(categoryId, name)` is unique; `label` is free text.
-- **`FieldType::LongText`** is the enum case that maps to
-  multi-line text storage. The full list of 16 built-in types lives
-  in [`docs/api/field-types.md`](../api/field-types.md); the next
-  chapter explains how to pick the right one.
+- **`Field::longText($note->id, 'body', 'Body')`** is a static
+  factory that returns a fresh `Field` of type `LongText`. There
+  are 15 more — `Field::text()`, `Field::image()`,
+  `Field::datepicker()`, … — one per built-in `FieldType`. Setters
+  like `->required()`, `->indexed()`, `->maxLength(200)` chain off
+  them. The full picker lives in the
+  [schema chapter](schema.md).
 
 ## Write a row
 
@@ -224,11 +218,22 @@ Wrote item #1
     Hello from iManager.
 ```
 
-Second run (no cleanup) you'll see a SQLite UNIQUE error from the
-schema-setup section — that's the warning the comment block above
-was about. Delete `data/notebook.db` and re-run, or wrap the schema
-calls in `findBySlug()` / `findByName()` guards as the
-[schema chapter](schema.md) shows.
+Second run (no cleanup) prints the same line plus a second item —
+`ensure()` saw both the category and the field already existed and
+returned them as-is, then the item save inserted a new row (items
+have no UNIQUE on name, so duplicates are allowed). Each subsequent
+run adds another item, building up a small list:
+
+```
+Wrote item #2
+#1 First note
+    Hello from iManager.
+#2 First note
+    Hello from iManager.
+```
+
+That's the natural shape of an iManager install — schema is
+declarative + idempotent, content is append-only by default.
 
 ## What just happened, in one paragraph
 
