@@ -135,96 +135,55 @@ $categories = $container->get(CategoryRepository::class);
 $fields     = $container->get(FieldRepository::class);
 ```
 
-Define the category — and make it idempotent so re-running the
-script is safe:
+Define the category. `CategoryRepository::ensure()` is upsert by
+natural key (`slug`): it inserts when the slug is new and returns
+the existing row when it isn't — re-runs are safe.
 
 ```php
-$post = $categories->findBySlug('post')
-    ?? $categories->save(new Category(
-        id:   null,
-        name: 'Post',
-        slug: 'post',
-    ));
+$post = $categories->ensure(new Category(null, 'Post', 'post'));
 ```
 
-The `??` short-circuits if `findBySlug` returns a `Category` — only
-saves a fresh one when the slug isn't there yet. Same pattern works
-for fields, but the field repo's lookup is by `(categoryId, name)`,
-so the guard takes both arguments. The cleanest shape is a small
-helper:
+For the fields, `FieldRepository::ensure()` does the same against
+`(categoryId, name)`. The fields themselves are built with the
+`Field::*` static factories + fluent setters introduced in 2.1.0,
+so the call site reads top-to-bottom like the schema you want:
 
 ```php
-function ensureField(
-    FieldRepository $repo,
-    int $categoryId,
-    string $name,
-    string $label,
-    FieldType $type,
-    bool $required = false,
-    bool $indexed = false,
-    bool $searchable = false,
-    array $config = [],
-): Field {
-    return $repo->findByName($categoryId, $name)
-        ?? $repo->save(new Field(
-            id:         null,
-            categoryId: $categoryId,
-            name:       $name,
-            label:      $label,
-            type:       $type,
-            required:   $required,
-            indexed:    $indexed,
-            searchable: $searchable,
-            config:     $config,
-        ));
-}
-```
-
-Now declare the five fields:
-
-```php
-ensureField($fields, $post->id, 'title', 'Title',
-    type: FieldType::Text,
-    required: true,
-    indexed: true,
-    searchable: true,
-    config: ['maxLength' => 200],
+$fields->ensure(
+    Field::text($post->id, 'title', 'Title')
+        ->required()->indexed()->searchable()->maxLength(200),
 );
 
-ensureField($fields, $post->id, 'slug', 'URL slug',
-    type: FieldType::Slug,
-    required: true,
-    indexed: true,
+$fields->ensure(
+    Field::slug($post->id, 'slug', 'URL slug')
+        ->required()->indexed(),
 );
 
-ensureField($fields, $post->id, 'body', 'Body',
-    type: FieldType::LongText,
-    required: true,
-    searchable: true,
+$fields->ensure(
+    Field::longText($post->id, 'body', 'Body')
+        ->required()->searchable(),
 );
 
-ensureField($fields, $post->id, 'published_at', 'Published at',
-    type: FieldType::Datepicker,
-    indexed: true,
+$fields->ensure(
+    Field::datepicker($post->id, 'published_at', 'Published at')
+        ->indexed(),
 );
 
-ensureField($fields, $post->id, 'cover_image', 'Cover image',
-    type: FieldType::Imageupload,
-    config: [
-        'maxBytes' => 5_000_000,           // 5 MB
-        'mimes'    => ['image/jpeg', 'image/png', 'image/webp'],
-    ],
+$fields->ensure(
+    Field::image($post->id, 'cover_image', 'Cover image')
+        ->maxBytes(5_000_000)
+        ->mimes('image/jpeg', 'image/png', 'image/webp'),
 );
 
 echo "Schema ready for category #{$post->id} ({$post->name})\n";
 ```
 
-Notice what changes when `required`, `indexed`, `searchable`, or
-`config` differ from the defaults — they're named-argument flags so
-the call site stays readable. The `config` map is whatever the
-plugin documents for itself; see
-[`docs/api/field-types.md`](../api/field-types.md) for each type's
-keys.
+Each fluent setter returns a new `final readonly Field`, so the
+chain is pure value-object construction with no hidden state. The
+type-aware setters (`maxLength`, `maxBytes`, `mimes`, …) all write
+into the field's `config` array under documented keys; see
+[`docs/api/field-types.md`](../api/field-types.md) for the full key
+list each built-in plugin understands.
 
 ## Run it
 
@@ -232,28 +191,33 @@ keys.
 php blog-schema.php
 ```
 
-First run prints something like `Schema ready for category #1 (Post)`.
-Second run prints the same line — no error, because every step is
-guarded with a `findBy*()` lookup. Third run after editing a field's
-flags? Still no error, but **the flag change is silently ignored** —
-`ensureField` only saves if the field doesn't exist. If you want
-upserts that update an existing field's flags, your helper has to do
-a `save()` on the merged value:
+First run prints `Schema ready for category #1 (Post)`. Second
+run prints the same line — no error, because `ensure()` returns
+the existing row on the hit path.
+
+**Third run after editing a flag** — say you change `->indexed()`
+to `->indexed(false)` and re-run? The flag change is silently
+ignored: `ensure()` is *insert-on-miss, return-existing-on-hit* by
+design, not *upsert-with-update*. This is deliberate — a stray
+`->indexed()` flip during schema iteration would otherwise trigger
+an `ALTER TABLE`-equivalent on every request without warning, and
+the same for `->searchable()` triggering a full FTS reindex.
+
+For genuine updates during development, route the existing field
+back through `save()` (which IS an update when `$id !== null`):
 
 ```php
-$existing = $fields->findByName($categoryId, $name);
-$desired  = new Field(
-    id:         $existing?->id,        // keep the id when updating
-    categoryId: $categoryId,
-    /* …all the other args… */
+$existing = $fields->findByName($post->id, 'title');
+\assert($existing !== null);
+
+$fields->save(
+    $existing->indexed(false)->maxLength(500),
 );
-$fields->save($desired);
 ```
 
-`save()` distinguishes insert from update by whether `$id` is `null`.
-Use the upsert variant if you're iterating on the schema during
-development; switch back to the cheap `??` guard once the schema is
-stable.
+The fluent setters work just as well on a fetched field as on a
+fresh factory output — the existing `id` carries through, and
+`save()` does an update.
 
 ## A pattern: keep schema and code together
 
@@ -267,10 +231,9 @@ function bootBlog(\League\Container\Container $container): int
     $categories = $container->get(CategoryRepository::class);
     $fields     = $container->get(FieldRepository::class);
 
-    $post = $categories->findBySlug('post')
-        ?? $categories->save(new Category(null, 'Post', 'post'));
+    $post = $categories->ensure(new Category(null, 'Post', 'post'));
 
-    ensureField($fields, $post->id, 'title', …);
+    $fields->ensure(Field::text($post->id, 'title')->required()->indexed()->searchable());
     /* … */
 
     return $post->id;
@@ -282,7 +245,7 @@ $posts = $container->get(ItemRepository::class)->findByCategory($postCategoryId)
 
 This makes the schema's authority obvious — there's no "wait, where
 did the `Post` category get defined?" The trade-off is the cost of
-running the `findBy*()` lookups on every request; for a five-field
+running the `ensure()` lookups on every request; for a five-field
 schema that's a handful of microseconds and well below noise.
 
 For larger schemas (dozens of categories, hundreds of fields), keep
@@ -292,14 +255,16 @@ same way you'd run migrations in a Symfony or Laravel app.
 ## What just happened, in one paragraph
 
 You declared a `Post` category and five fields with carefully
-chosen `FieldType`s, flagged the queryable ones `indexed` and the
-searchable ones `searchable`, set per-field config for length /
-mime / max-bytes constraints, and wrapped each step in a
-`findBy*()` guard so the script is safe to re-run. The result is
-that an item save into `Post` will round-trip the five values
-through their typed plugins, the title and body will be findable
-via FTS5, and queries filtering by `slug` or `published_at` will
-hit indexes instead of scanning JSON.
+chosen `FieldType`s via the `Field::*` factories, flagged the
+queryable ones `->indexed()` and the searchable ones
+`->searchable()`, set per-field config for length / mime /
+max-bytes constraints with the type-aware fluent setters, and
+ran every step through `ensure()` so the script is safe to
+re-run. The result is that an item save into `Post` will
+round-trip the five values through their typed plugins, the title
+and body will be findable via FTS5, and queries filtering by
+`slug` or `published_at` will hit indexes instead of scanning
+JSON.
 
 ## Next steps
 

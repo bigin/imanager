@@ -73,8 +73,6 @@ The chapter sticks to the three built-ins emit.
 
 ## Build the contact-form schema
 
-Reusing the helpers from the [schema chapter](schema.md):
-
 ```php
 <?php
 
@@ -86,7 +84,6 @@ use Imanager\DefaultBootstrap;
 use Imanager\Domain\Category;
 use Imanager\Domain\Field;
 use Imanager\Domain\Item;
-use Imanager\Enum\FieldType;
 use Imanager\Enum\InputErrorCode;
 use Imanager\Field\FieldTypeRegistry;
 use Imanager\Storage\CategoryRepository;
@@ -110,55 +107,33 @@ The new line is `$registry = $container->get(FieldTypeRegistry::class);`
 — that's the door to every plugin's `validate()`.
 
 ```php
-$contact = $categories->findBySlug('contact-message')
-    ?? $categories->save(new Category(null, 'ContactMessage', 'contact-message'));
+$contact = $categories->ensure(
+    new Category(null, 'ContactMessage', 'contact-message'),
+);
 
-function ensureField(
-    FieldRepository $repo,
-    int $categoryId,
-    string $name,
-    string $label,
-    FieldType $type,
-    bool $required = false,
-    array $config = [],
-): Field {
-    return $repo->findByName($categoryId, $name)
-        ?? $repo->save(new Field(
-            id:         null,
-            categoryId: $categoryId,
-            name:       $name,
-            label:      $label,
-            type:       $type,
-            required:   $required,
-            config:     $config,
-        ));
-}
-
-ensureField($fields, $contact->id, 'name', 'Name',
-    type: FieldType::Text,
-    required: true,
-    config: ['maxLength' => 100, 'minLength' => 2],
+$fields->ensure(
+    Field::text($contact->id, 'name', 'Name')
+        ->required()->maxLength(100)->minLength(2),
 );
-ensureField($fields, $contact->id, 'email', 'Email',
-    type: FieldType::Text,
-    required: true,
-    config: ['maxLength' => 200],
+$fields->ensure(
+    Field::text($contact->id, 'email', 'Email')
+        ->required()->maxLength(200),
 );
-ensureField($fields, $contact->id, 'subject', 'Subject',
-    type: FieldType::Text,
-    required: true,
-    config: ['maxLength' => 200, 'minLength' => 3],
+$fields->ensure(
+    Field::text($contact->id, 'subject', 'Subject')
+        ->required()->maxLength(200)->minLength(3),
 );
-ensureField($fields, $contact->id, 'message', 'Message',
-    type: FieldType::LongText,
-    required: true,
-    config: ['maxLength' => 5000, 'minLength' => 10],
+$fields->ensure(
+    Field::longText($contact->id, 'message', 'Message')
+        ->required()->maxLength(5000)->minLength(10),
 );
 ```
 
 Four fields, three of them with min-length constraints, one
 (`email`) that *only* uses the built-in Text rules — we'll add the
-email-pattern check at the application level in a moment.
+email-pattern check at the application level in a moment. (For the
+schema-setup mechanics — `ensure()`, the `Field::*` factories, the
+fluent setters — see the [schema chapter](schema.md).)
 
 ## One field at a time
 
