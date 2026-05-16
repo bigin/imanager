@@ -58,7 +58,7 @@ final class V1FileParserTest extends TestCase
         $data = $this->parser->parseFile($this->fixturePath('items/1.items.php'));
 
         self::assertCount(2, $data);
-        self::assertSame('\Scriptor\Core\Page', $data[1]['__class']);
+        self::assertSame('\LegacyHost\Page', $data[1]['__class']);
         self::assertSame('Demo Page', $data[1]['name']);
         self::assertTrue($data[1]['active']);
         self::assertSame('demo-page', $data[1]['slug']);

@@ -25,9 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] — 2026-05-13
 
 Initial stable release of iManager as a standalone library — extracted
-and rewritten from the embedded library that shipped with Scriptor ≤ 1.x.
-This entry collects every phase of the rewrite into a single release
-note; subsequent versions will add their own headers above this one.
+and rewritten from a previous-generation embedded library. This entry
+collects every phase of the rewrite into a single release note;
+subsequent versions will add their own headers above this one.
 
 ### Phase 0 — Infrastructure & CI
 
@@ -227,10 +227,10 @@ note; subsequent versions will add their own headers above this one.
   before constructing the `Item`. Adjacent statements about
   `$field->required` and the lifecycle of `ValidationResult` /
   `ValidationException` corrected to match.
-- `docs: drop references to a specific consumer (Scriptor)
-  throughout` — library docs read as host-neutral; Phase 14
-  reframed as "First-Consumer-Cutover (Release-Gate)"; consumer-
-  side cutover detail plan moved out of this repo.
+- `docs: drop references to a specific consumer throughout` —
+  library docs read as host-neutral; Phase 14 reframed as
+  "First-Consumer-Cutover (Release-Gate)"; consumer-side cutover
+  detail plan moved out of this repo.
 - `docs(api/field-types): correct InputErrorCode case list` — the
   initial reference page invented enum cases (`Required`,
   `OutOfRange`, `PatternMismatch`, …); the actual enum has

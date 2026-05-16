@@ -9,7 +9,7 @@ namespace Imanager\Http;
  *
  * All keys are stored under a single namespace prefix on the superglobal so
  * the iManager session keys can't collide with whatever the host application
- * (Scriptor's editor, a custom embedding) writes to `$_SESSION` directly.
+ * (a host CMS admin shell, a custom embedding) writes to `$_SESSION` directly.
  *
  * The constructor does NOT call `session_start()` — that's a host-app concern
  * and starting it inside a library would surprise callers. If `$_SESSION`

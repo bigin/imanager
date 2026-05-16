@@ -292,7 +292,7 @@ final class JsonV1ImporterTest extends TestCase
         return <<<PHP
         <?php return array (
           100 =>
-          \\Scriptor\\Core\\Page::__set_state(array(
+          \\LegacyHost\\Page::__set_state(array(
              'categoryid' => 1,
              'id' => 100,
              'name' => 'root',
@@ -306,7 +306,7 @@ final class JsonV1ImporterTest extends TestCase
              'content' => 'Top-level page.',
           )),
           200 =>
-          \\Scriptor\\Core\\Page::__set_state(array(
+          \\LegacyHost\\Page::__set_state(array(
              'categoryid' => 1,
              'id' => 200,
              'name' => 'child',
@@ -320,7 +320,7 @@ final class JsonV1ImporterTest extends TestCase
              'content' => 'Child of root.',
           )),
           300 =>
-          \\Scriptor\\Core\\Page::__set_state(array(
+          \\LegacyHost\\Page::__set_state(array(
              'categoryid' => 1,
              'id' => 300,
              'name' => 'grandchild',
@@ -334,7 +334,7 @@ final class JsonV1ImporterTest extends TestCase
              'content' => 'Child of child.',
           )),
           400 =>
-          \\Scriptor\\Core\\Page::__set_state(array(
+          \\LegacyHost\\Page::__set_state(array(
              'categoryid' => 1,
              'id' => 400,
              'name' => '{$extraName}',
