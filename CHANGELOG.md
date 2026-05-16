@@ -115,7 +115,8 @@ subsequent versions will add their own headers above this one.
   and writes the new schema inside a single transaction.
 - Field-type-aware value translation; `--dry-run` produces a report.
 - Asset copy from legacy `data/uploads/<cat>.<id>.<field>/` into the
-  new `data/uploads-2.0/<itemId>/<fieldId>/` layout.
+  new `<uploadsPath>/<itemId>/<fieldId>/` layout
+  (`uploadsPath` = whatever the host passes to `DefaultBootstrap::boot()`).
 
 ### Phase 10 — HTTP / input layer
 
@@ -147,7 +148,7 @@ subsequent versions will add their own headers above this one.
 - `Imanager\Files\ImageProcessor` (GD): resize, crop, on-demand
   thumbnail materialisation.
 - `LocalFileStorage` writes originals + `thumbnail/<W>x<H>_<file>`
-  under `data/uploads-2.0/<itemId>/<fieldId>/`.
+  under `<uploadsPath>/<itemId>/<fieldId>/`.
 - Schema migration `0003_files` adds the `files` table.
 
 ### Phase 14e-1 — Domain event dispatcher
@@ -176,7 +177,7 @@ subsequent versions will add their own headers above this one.
   re-numbering — supports drag-and-drop reordering in host editor
   UIs without re-saving the surrounding item (#21).
 
-### Phase 16 — Docs & examples (in progress)
+### Phase 16 — Docs & examples
 
 - `DefaultBootstrap` factory wires the full standard service graph
   (PDO + schema migrations, Storage + 4 repositories, FieldTypeRegistry
