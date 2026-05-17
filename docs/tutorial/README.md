@@ -27,11 +27,12 @@ machinery the next one builds on.
 | [Design a content schema](schema.md) | Pick the right `FieldType` for each column, what `indexed` and `searchable` actually do under the hood (generated columns + FTS5 with real SQL), idempotent setup patterns so re-running your migration is safe. | A blog (`Post` category with title, slug, body, publish date, cover image). |
 | [Validate user input before saving](validation.md) | The canonical `FieldTypeRegistry::get($type)->validate()` loop, how to collect errors across a whole form, where iManager's contract ends and your application code takes over. | A contact form (name + email + subject + message), validated server-side. |
 | [Mutate and delete data](lifecycle.md) | The three repository verbs (`save`, `ensure`, `delete`), event-firing order, what cascades automatically (and what doesn't — orphan generated columns, surviving file bytes), wiring file cleanup yourself, why iManager has no soft-delete. | A bookmark vault (`Bookmark` category with title, url, cover image). |
+| [Upload files and generate thumbnails](files.md) | The four-part upload pipeline (`UploadedFile`, `UploadConstraints`, `UploadHandler`, `FileStorage`/`FileRepository`), MIME sniffing, the common "constraints in two places" gotcha, lazy thumbnail generation via `ImageProcessor`, swapping the storage backend. | A photo gallery (`Gallery` category with title + image upload). |
 
-More chapters land in subsequent releases — file uploads,
-full-text search, and domain events get their own walkthroughs.
-Until then they're covered by the reference docs linked at the
-bottom of each chapter.
+One more chapter — full-text search — lands in a follow-up PR. The
+event-system mechanics are already covered in the lifecycle
+chapter; a dedicated `events.md` may or may not happen depending
+on whether common listener patterns warrant their own walkthrough.
 
 ## Going deeper
 
