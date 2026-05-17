@@ -216,20 +216,33 @@ foreach ($hits as $hit) {
 …runs `SELECT … FROM items_fts WHERE items_fts MATCH :q ORDER BY
 rank` internally — sub-millisecond on tens of thousands of items.
 
-> **Honest caveat on the `searchable` flag today.** The intent of
-> `searchable: true` is *"include this field's text in
-> `items_fts.body`"*. The current FTS-sync implementation
-> (`SqliteItemRepository::syncFts()` in 2.1.0) is broader: it
-> flattens *every* string and numeric value from `Item::$data`
-> into the FTS body, regardless of the per-field flag. A future
-> release will tighten this to respect `searchable: false` as an
-> opt-out (the codebase tracks this as a known followup). The
-> practical effect today: any text field is findable via
-> `FullTextSearch::search()` whether you set `searchable` or not.
-> Set the flag correctly anyway — it captures your intent and the
-> future-stricter behavior won't surprise you.
+**Smart factory defaults (2.2.0+).** Prose-typed factories pick
+sensible defaults so the common case needs no setter call:
 
-What `searchable` costs (or will cost, once honored):
+```php
+$fields->ensure(Field::text($post->id, 'title'));      // searchable: true
+$fields->ensure(Field::longText($post->id, 'body'));   // searchable: true
+$fields->ensure(Field::password($user->id, 'pw'));     // searchable: false
+$fields->ensure(Field::image($post->id, 'cover'));     // searchable: false
+```
+
+The rule of thumb: a field whose value is *prose a human would
+type to find this item* defaults to indexed. Hashes, file paths,
+numeric IDs, and money amounts default out. Override either way:
+
+```php
+// Make a slug not searchable — it's already in the URL.
+$fields->ensure(Field::slug($post->id, 'slug')->searchable(false));
+
+// Make a numeric SKU searchable — your users will type it.
+$fields->ensure(Field::integer($product->id, 'sku')->searchable(true));
+```
+
+`name` and `label` are structural columns on the `items_fts`
+table and are *always* indexed — they live on the item row itself,
+not in `data`, and the `searchable` flag doesn't apply.
+
+What `searchable` costs:
 
 - **Storage**: roughly 1× the indexed text size again. FTS5
   stores its inverted index inline.

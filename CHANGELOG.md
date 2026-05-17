@@ -5,6 +5,86 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-05-17
+
+The per-field `searchable` flag, present on `Field` since 1.x, was a
+documented-but-ignored no-op until this release. It is now load-bearing:
+SQLite-FTS5 indexing respects it on every save and rebuild.
+Design spec: [`docs/imanager-2.2-plan.md`](docs/imanager-2.2-plan.md).
+
+### Changed
+
+- **`SqliteItemRepository::syncFts()` honors `Field::$searchable`.**
+  Only values from fields with `searchable = true` are written into
+  `items_fts.body`. `name` and `label` remain structural FTS columns
+  and are always indexed regardless. (#58)
+- **`FullTextSearch::rebuild()` honors `Field::$searchable`.**
+  Now iterates items in PHP after a single bulk-query over the
+  `fields` table; the previous single bulk `INSERT … SELECT` could
+  not apply the per-category filter. CLI op only, no hot-path
+  performance change. (#58)
+- **`Field` factory smart defaults for `searchable`.** Prose-typed
+  factories (`Field::text()`, `longText()`, `editor()`, `slug()`)
+  default to `searchable: true`. Every other factory defaults to
+  `false`. Constructor default stays `false` so direct construction
+  is backward-compatible. Callers always override via the
+  `->searchable(true|false)` fluent setter. (#57)
+
+### Added
+
+- **Migration `0005_searchable_defaults.sql`.** Promotes existing
+  `text`/`longtext`/`editor`/`slug` field rows to `searchable = 1`
+  on upgrade so installs keep their existing FTS coverage for
+  prose content. Verified against the live Scriptor schema: all 8
+  text-typed fields (slug, parent, pagetype, menu_title, content,
+  template, role, email) promote; password + fileupload fields
+  stay at 0. (#58)
+- **`FtsBody::compose()`** — single source of truth for the body
+  column written into `items_fts`. Used by both the per-save writer
+  and the bulk rebuilder so they cannot drift. (#58)
+- **`SqliteItemRepository` constructor accepts optional
+  `?FieldRepository`** as the third argument. The 2-arg signature
+  from 2.0/2.1 keeps working — falls back to "index everything"
+  with a one-time `E_USER_DEPRECATED` notice on first FTS write.
+  The no-arg form will become an error in 3.0. (#58)
+
+### Upgrading from 2.1.x
+
+After `composer update`, run:
+
+```bash
+vendor/bin/imanager fts:rebuild
+```
+
+The migration promotes existing field rows for prose-typed content
+so per-save indexing keeps the same coverage, but pre-existing rows
+in `items_fts` were written under the old "index everything" rule
+and still contain values from fields that are now opted out.
+`fts:rebuild` reconciles them.
+
+Side effects of honoring the flag (all deliberate):
+
+- `password`-typed field values stop appearing in FTS (was a bcrypt
+  hash; not useful as search content).
+- `fileupload`/`imageupload`/`filepicker` paths stop appearing in
+  FTS (paths weren't useful search content).
+- `integer`/`decimal`/`money`/`datepicker`/`checkbox`/`dropdown`/
+  `hidden`/`arrayList` values stop appearing in FTS.
+
+To keep one of those types in FTS, opt back in explicitly:
+
+```php
+$fields->ensure(Field::integer($cat->id, 'sku')->searchable(true));
+```
+
+### Deprecated
+
+- **`new SqliteItemRepository($pdo, $events)`** (2-arg form).
+  Triggers `E_USER_DEPRECATED` on first FTS write. Pass the
+  `FieldRepository` as the third argument (or use
+  `SqliteStorage::items()`, which wires it for you). The no-arg
+  form will be removed in 3.0.
+
 ## [2.1.0] — 2026-05-16
 
 Schema-setup ergonomics release. Additive only — every 2.0.x caller

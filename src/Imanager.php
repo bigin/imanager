@@ -10,5 +10,5 @@ final class Imanager
      * Bump together with every git tag. Verified by ReleaseConsistencyTest
      * so a forgotten bump fails CI rather than ships silently.
      */
-    public const VERSION = '2.1.0';
+    public const VERSION = '2.2.0';
 }

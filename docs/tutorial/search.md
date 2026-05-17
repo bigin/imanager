@@ -374,40 +374,31 @@ items_fts SELECT … FROM items`. On 10k items it takes seconds; on
 100k items, low tens of seconds; on millions, plan a maintenance
 window.
 
-### A subtle inconsistency to know about
+## What does and doesn't make it into the index
 
-The live `syncFts()` (called on every save) and `rebuild()` produce
-*slightly* different FTS bodies:
+As of 2.2.0, FTS body content is exactly *one* function call away
+from the schema:
 
-- **`syncFts()`** writes `name + label + flattenForSearch(data)`,
-  where `flattenForSearch` walks the `data` array and includes
-  string/numeric values only — JSON keys do NOT appear in the
-  body.
-- **`rebuild()`** writes `name + label + raw JSON of data`, which
-  means JSON keys (`"title"`, `"body"`) ARE present in the
-  index — but the FTS5 unicode61 tokenizer treats quotes, braces,
-  and colons as separators, so functionally the difference is
-  small (key names become extra tokens).
+- `name` and `label` are structural — always indexed regardless
+  of any flag.
+- For every other key in `Item::$data`, the value is included in
+  the body **iff** the field's `searchable` flag is true.
+- `Field::text()` / `longText()` / `editor()` / `slug()` default
+  to `searchable: true`; every other factory defaults to false.
+- Override either direction with `->searchable(true)` /
+  `->searchable(false)` on the fluent chain (see
+  [schema.md](schema.md#searchable-true--what-really-happens)).
 
-You'll only notice this if you search for a literal JSON key name
-(`"body"` matching everything because every item's rebuilt body
-contains the JSON key) — uncommon but worth knowing for debugging.
-A future release may make `syncFts` + `rebuild` produce identical
-bodies; for now they're close-enough-but-not-identical.
+The same rule applies to per-save `syncFts` and bulk `rebuild()`
+— both call into `FtsBody::compose()` so they cannot drift.
 
-## The `searchable: true` flag is still aspirational
-
-Briefly recapped from [schema.md](schema.md#searchable-true--what-really-happens):
-today the FTS sync indexes **every** text value from `Item::$data`
-regardless of which fields you flagged `->searchable()`. Setting
-the flag correctly is still worth it — captures intent and the
-future-stricter behavior won't surprise you — but the practical
-effect today is that any text field is findable.
-
-For an opt-out-now hack, the only path is to **not** put the
-content in `data` at all (e.g., store it in a sibling table you
-manage yourself). Most apps don't care enough about the leak to
-bother.
+If you migrated from 2.1.x: existing field rows for prose-typed
+content (`text`, `longtext`, `editor`, `slug`) were promoted by
+migration `0005`, so your existing FTS coverage is preserved.
+Pre-existing rows in `items_fts` itself were written under the
+old "index everything" rule though — run `vendor/bin/imanager
+fts:rebuild` once after upgrade so they line up with the new
+filter.
 
 ## Performance
 
