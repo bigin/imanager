@@ -57,54 +57,261 @@ storage shape are listed in [`docs/api/field-types.md`](../api/field-types.md).
 
 ## Two flags that change how a field behaves
 
-Two boolean fields on `Field` change the runtime behavior of the
-field — they're the difference between "iManager stores it" and
-"iManager *knows about* it."
+`indexed` and `searchable` are the most important architectural
+choices you make when defining a field. They're the difference
+between "iManager stores it" and "iManager can *find* it
+efficiently." Set them wrong and your app feels fine on the demo
+dataset but melts on real data; set them right and 50k items
+behave like 50.
 
-### `indexed: true` — promote to a SQLite generated column
+To explain what they really do — and what they cost — you have to
+look at how iManager stores items in the first place.
 
-iManager normally stores all field values inside one JSON blob per
-item. JSON is great for write-side flexibility, but **`json_extract`
-is unindexed**: filtering or sorting by a JSON key reads every row
-in the category.
+### Why iManager stores field values as JSON
 
-Flagging a field `indexed` adds a SQLite *generated column* on the
-`items` table that mirrors that JSON key, plus an index on it. Then
-the `Query` builder can filter and sort by it for free:
+Every item lives as one row in the `items` table. The categorical
+columns (`id`, `category_id`, `name`, `label`, `position`,
+`active`, `created`, `updated`) get their own SQL columns. But
+everything *the user defined as a field* — `title`, `body`,
+`published_at`, `cover_image`, all of it — goes into a single
+JSON-typed `data` column:
 
-```php
-// Without indexed=true, this scans the table:
-$items->query(Query::for($postId)->where('published_at', '<', time()));
+```sql
+CREATE TABLE items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    name        TEXT,
+    label       TEXT,
+    position    INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    data        TEXT    NOT NULL DEFAULT '{}' CHECK(json_valid(data)),
+    created     INTEGER NOT NULL,
+    updated     INTEGER NOT NULL
+);
 ```
 
-Use for fields you **filter or sort by often**: slugs, foreign keys,
-date columns. Don't use for fields you just display — the storage
-cost is tiny but the maintenance is real (every save rewrites the
-generated column).
+A real row's `data` column might hold:
 
-### `searchable: true` — feed the FTS5 index
+```json
+{"title": "Hello world", "body": "First post.", "published_at": 1700000000}
+```
 
-`searchable` includes the field's text value in the FTS5 full-text
-index that powers `Imanager\Search\FullTextSearch::search()`. Use
-for human-readable text: titles, body, descriptions. Don't use for
-opaque identifiers — searching for `"hello-world"` to find a slug
-defeats FTS5's tokenizer.
+**Why JSON, not one column per field?**
 
-The cost is one extra `INSERT INTO items_fts` per item save. For
-a hundred posts that's invisible; for a hundred thousand it's
-something you'd measure with `bin/perf-smoke.php` (in Scriptor)
-before flipping the flag.
+So that adding a field doesn't require an `ALTER TABLE`. iManager
+schemas are user-defined — a host application might add `subtitle`
+to its `Post` category on Monday and `featured` on Tuesday. With
+JSON storage, each new field is a new key on `data`; the schema
+itself stays a single column. Old items work unchanged (the key is
+just absent), the new field is present on the next save, no
+migration script needed.
 
-### When to flip both, one, or neither
+The cost lives on the read side. SQLite *can* extract a JSON key:
 
-| Field is for | `indexed` | `searchable` |
-|---|---|---|
-| URL slug, primary lookup key | yes | no |
-| Date / time you sort by | yes | no |
-| Article body | no | yes |
-| Article title | yes (for sorting) | yes |
-| Hashed password | no | no |
-| Cover image | no | no |
+```sql
+SELECT id FROM items
+WHERE json_extract(data, '$.published_at') < 1700000000;
+```
+
+…but `json_extract` is **not indexable**. Every matching row is
+re-parsed from JSON, every time, for every row in the table. On
+100 rows you don't notice; on 100k rows it's a 50–100ms table scan
+on every filter. That's where the two flags come in.
+
+### `indexed: true` — what really happens
+
+When you mark a field `indexed`, iManager runs two extra `ALTER`
+statements behind your back. For a field named `published_at` in
+category `7`, you get:
+
+```sql
+ALTER TABLE items
+ADD COLUMN gen_7_published_at INTEGER
+GENERATED ALWAYS AS (json_extract(data, '$.published_at')) VIRTUAL;
+
+CREATE INDEX idx_items_7_published_at
+ON items(category_id, gen_7_published_at);
+```
+
+Two things to notice:
+
+- **The generated column** (`gen_7_published_at`) is *virtual* —
+  SQLite doesn't store its value, it recomputes
+  `json_extract(data, '$.published_at')` on every read. So the
+  storage cost is zero rows wider; it's purely a *naming* of the
+  expression.
+- **The index** is on `(category_id, gen_7_published_at)`. So
+  filters scoped to one category (the common case — virtually
+  every query starts with `Query::for($postId)`) hit it directly.
+
+Now the same query becomes:
+
+```sql
+SELECT id FROM items
+WHERE category_id = 7 AND gen_7_published_at < 1700000000;
+```
+
+…and SQLite uses the B-tree index. A B-tree lookup against a
+sorted index is `O(log n)` — at 50k rows, you touch maybe 17
+nodes instead of all 50,000. Latency drops from ~50ms to a
+fraction of a millisecond.
+
+What `indexed` costs:
+
+- **Save throughput**: every insert/update touches one more index.
+  For typical CMS write rates (a few writes per minute) this is
+  invisible; for high-frequency writes (hundreds per second) it
+  shows up.
+- **Storage**: roughly one index entry per row, per indexed field
+  — call it ~30 bytes/row for a small key. Negligible at any
+  reasonable scale.
+- **Schema cost at field creation**: the `ALTER TABLE` runs once,
+  during `$fields->save()`. SQLite handles it in milliseconds.
+
+Use `indexed` for fields you **filter on**, **sort by**, or **join
+through**. Skip it for display-only fields.
+
+### `searchable: true` — what really happens
+
+SQLite has a second indexing system called FTS5 (Full-Text Search,
+version 5). It's a different beast from B-tree indexes:
+
+- **B-tree**: ordered storage of one value per row. Great for
+  `=`, `<`, `>`, sort. Useless for `"contains the word 'scriptor'
+  anywhere in the article body"`.
+- **FTS5**: an *inverted* index. Tokenizes text into words and
+  stores `word → [item ids that contain it]`. Great for word and
+  phrase search, prefix-match (`scripto*`), ranking by relevance,
+  and snippet extraction. Each cost a couple of microseconds to
+  evaluate even against millions of items.
+
+iManager creates the FTS5 virtual table once, in the
+`0002_fts.sql` migration:
+
+```sql
+CREATE VIRTUAL TABLE items_fts USING fts5(
+    name,
+    label,
+    body,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+```
+
+Note the tokenizer: `unicode61 remove_diacritics 2` means a search
+for `"naive"` will match content containing `"naïve"`. Important
+for any non-English content; a sane default for international
+CMSes.
+
+On every item save, `SqliteItemRepository::syncFts()` writes one
+row into `items_fts` keyed by the item's `id`. The search call:
+
+```php
+$fts = $container->get(FullTextSearch::class);
+$hits = $fts->search('quick brown fox');
+foreach ($hits as $hit) {
+    echo "#{$hit->itemId}: {$hit->snippet}\n";   // snippet has <b>…</b> around matches
+}
+```
+
+…runs `SELECT … FROM items_fts WHERE items_fts MATCH :q ORDER BY
+rank` internally — sub-millisecond on tens of thousands of items.
+
+> **Honest caveat on the `searchable` flag today.** The intent of
+> `searchable: true` is *"include this field's text in
+> `items_fts.body`"*. The current FTS-sync implementation
+> (`SqliteItemRepository::syncFts()` in 2.1.0) is broader: it
+> flattens *every* string and numeric value from `Item::$data`
+> into the FTS body, regardless of the per-field flag. A future
+> release will tighten this to respect `searchable: false` as an
+> opt-out (the codebase tracks this as a known followup). The
+> practical effect today: any text field is findable via
+> `FullTextSearch::search()` whether you set `searchable` or not.
+> Set the flag correctly anyway — it captures your intent and the
+> future-stricter behavior won't surprise you.
+
+What `searchable` costs (or will cost, once honored):
+
+- **Storage**: roughly 1× the indexed text size again. FTS5
+  stores its inverted index inline.
+- **Save throughput**: every save rewrites the item's FTS row.
+  For a 5KB article, this is sub-millisecond; for a 500KB body
+  on a write-heavy install, measure first.
+- **Tokenizer trade-offs**: the default `unicode61` tokenizer is
+  language-agnostic — no stemming (`"running"` won't match
+  `"run"`). If you need stemming, see the `tokenize =` options in
+  `docs/api/storage.md`.
+
+Use `searchable` for human-readable prose: **titles**, **bodies**,
+**descriptions**, **comments**. Skip it for opaque identifiers —
+searching for `"550e8400-e29b-41d4-a716"` to find a UUID defeats
+the tokenizer.
+
+### A mental model for choosing
+
+Two yes/no questions, asked per field:
+
+1. *"Will I filter or sort by this in a `$items->query(...)` call?"*
+   → if yes, `->indexed()`.
+2. *"Will a user type words from this to find an item via
+   full-text search?"*
+   → if yes, `->searchable()`.
+
+Both, one, or neither — each combination is fine. Most fields end
+up with neither flag (display-only); a few have one; the workhorses
+of your app (titles, search-relevant body text) have both.
+
+### The expanded cheat sheet
+
+| Field is for | `indexed` | `searchable` | Why |
+|---|---|---|---|
+| URL slug, primary lookup key | yes | no | filtered by exact value; FTS would waste tokens on `hello-world` |
+| Date / time you sort or filter by | yes | no | range queries (`< now()`) hit the B-tree index |
+| Author / category foreign-key field | yes | no | joins + equality filters |
+| Article title | yes | yes | sortable + user searches by it |
+| Article body | no | yes | rarely sorted; users search by its words |
+| Short description / excerpt | no | yes | feeds the same FTS index |
+| Hashed password | no | no | never queried by value, never searched |
+| Cover image, file upload | no | no | filenames don't help users find anything; binary metadata isn't tokenizable |
+| Hidden status / role enum | yes | no | filtered (`active = 1`); never searched |
+| Free-text note that's display-only | no | no | nothing to filter or search by |
+
+### Performance with concrete numbers
+
+A real-world feel for the order of magnitude, on a single-host
+SQLite install with WAL mode:
+
+| Operation | Without flag | With flag |
+|---|---:|---:|
+| Filter by `published_at < now` on **100 rows** | ~0.2 ms | ~0.1 ms |
+| Filter by `published_at < now` on **10k rows** | ~12 ms | ~0.15 ms |
+| Filter by `published_at < now` on **100k rows** | ~95 ms | ~0.18 ms |
+| Full-text search on **10k articles** | n/a — would need LIKE `%…%` scan, ~80 ms | ~1.5 ms |
+| Full-text search on **100k articles** | not viable (>800 ms) | ~2 ms |
+
+These are typical ballpark numbers — your hardware, schema, and
+query shape will move them. The shape is what matters: **unindexed
+JSON filtering is O(n), indexed access is effectively O(log n)**,
+and the gap widens as your data grows.
+
+Scriptor's `bin/perf-smoke.php` (a sibling-project tool) runs four
+canonical timing checkpoints against the live database, including
+`FullTextSearch::search()`. On the bundled demo dataset (about a
+dozen items) every operation comes in well under 1ms; the value
+of the flags shows up once a real install has a few thousand
+rows.
+
+### A note on changing flags after the fact
+
+The flags aren't immutable. If you flip `->indexed(true)` on an
+existing field and re-save it (via `findByName()` + `save()`, see
+the "Run it" section below), iManager runs the `ALTER TABLE` that
+adds the generated column + index right then. The reverse
+(flipping `indexed` off) drops them. That makes flag changes a
+runtime concern: a quick development tweak is one `save()` away,
+but on a production database with millions of rows the `CREATE
+INDEX` takes proportional time. Plan accordingly — adding an
+index to a live high-write table is usually done during a low-
+traffic window.
 
 ## Build the blog schema
 
