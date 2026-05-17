@@ -106,18 +106,64 @@ final readonly class FullTextSearch
 
     /**
      * Drop and rebuild the FTS index from scratch. Useful as a CLI op when
-     * tokenizer settings or migration content changes.
+     * tokenizer settings or migration content changes, and the canonical
+     * step after upgrading to 2.2.0 so the body column drops values whose
+     * field's `searchable` flag is now false.
+     *
+     * The rebuild iterates items in PHP rather than running a single bulk
+     * INSERT…SELECT because the per-category set of searchable field names
+     * varies per row. This is a CLI op, not a hot path — per-row iteration
+     * is acceptable at the install sizes iManager realistically targets.
      */
     public function rebuild(): void
     {
         try {
-            $this->connection->exec('DELETE FROM items_fts');
-            $this->connection->exec(
-                'INSERT INTO items_fts(rowid, name, label, body) '
-                    . 'SELECT i.id, IFNULL(i.name, \'\'), IFNULL(i.label, \'\'), '
-                    . 'IFNULL(i.name, \'\') || \' \' || IFNULL(i.label, \'\') || \' \' || IFNULL(i.data, \'\') '
-                    . 'FROM items i',
+            // Per-category set of searchable field names. One query, used
+            // for the entire rebuild.
+            $allowedByCategory = [];
+            $fieldsStmt = $this->connection->query(
+                'SELECT category_id, name FROM fields WHERE searchable = 1',
             );
+            if ($fieldsStmt !== false) {
+                foreach ($fieldsStmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                    $allowedByCategory[(int) $row['category_id']][] = (string) $row['name'];
+                }
+            }
+
+            $this->connection->exec('DELETE FROM items_fts');
+
+            $itemsStmt = $this->connection->query(
+                'SELECT id, category_id, name, label, data FROM items',
+            );
+            if ($itemsStmt === false) {
+                return;
+            }
+
+            $insert = $this->connection->prepare(
+                'INSERT INTO items_fts (rowid, name, label, body) '
+                . 'VALUES (:id, :name, :label, :body)',
+            );
+
+            foreach ($itemsStmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $categoryId = (int) $row['category_id'];
+                $allowed = $allowedByCategory[$categoryId] ?? [];
+
+                $rawData = $row['data'] !== null ? (string) $row['data'] : '';
+                $data = $rawData !== '' ? json_decode($rawData, true) : [];
+                if (! \is_array($data)) {
+                    $data = [];
+                }
+
+                $name = $row['name'] !== null ? (string) $row['name'] : '';
+                $label = $row['label'] !== null ? (string) $row['label'] : '';
+
+                $insert->execute([
+                    ':id'    => (int) $row['id'],
+                    ':name'  => $name,
+                    ':label' => $label,
+                    ':body'  => FtsBody::compose($name, $label, $data, $allowed),
+                ]);
+            }
         } catch (\PDOException $e) {
             throw StorageException::fromPdo($e, 'Full-text index rebuild failed');
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Imanager\Tests\Unit\Search;
 
 use Imanager\Domain\Category;
+use Imanager\Domain\Field;
 use Imanager\Domain\Item;
 use Imanager\Exception\StorageException;
 use Imanager\Search\FullTextSearch;
@@ -34,6 +35,12 @@ final class FullTextSearchTest extends TestCase
         \assert($blog->id !== null && $news->id !== null);
         $this->blogId = $blog->id;
         $this->newsId = $news->id;
+
+        // Declare the `body` field on both categories — Field::longText()
+        // defaults to searchable:true (2.2.0+), which is what these tests
+        // need so per-save syncFts writes body content into FTS.
+        $this->storage->fields()->ensure(Field::longText($this->blogId, 'body', 'Body'));
+        $this->storage->fields()->ensure(Field::longText($this->newsId, 'body', 'Body'));
 
         $this->storage->items()->save(new Item(
             id: null,

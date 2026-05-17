@@ -49,7 +49,7 @@ final class SqliteStorage implements Storage
 
     public function items(): ItemRepository
     {
-        return new SqliteItemRepository($this->connection, $this->events);
+        return new SqliteItemRepository($this->connection, $this->events, $this->fields());
     }
 
     public function files(): FileRepository

@@ -14,6 +14,8 @@ use Imanager\Exception\StorageException;
 use Imanager\Query\Clause;
 use Imanager\Query\Direction;
 use Imanager\Query\Query;
+use Imanager\Search\FtsBody;
+use Imanager\Storage\FieldRepository;
 use Imanager\Storage\ItemRepository;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
@@ -39,11 +41,21 @@ final readonly class SqliteItemRepository implements ItemRepository
 
     private readonly EventDispatcherInterface $events;
 
+    /**
+     * Optional repository used to look up the per-field `searchable`
+     * flag. When `null` (the 2.0/2.1 constructor signature), syncFts
+     * indexes every value — preserving legacy behavior for direct
+     * callers, with a one-time deprecation notice on first FTS write.
+     */
+    private readonly ?FieldRepository $fields;
+
     public function __construct(
         private \PDO $connection,
         ?EventDispatcherInterface $events = null,
+        ?FieldRepository $fields = null,
     ) {
         $this->events = $events ?? new NullEventDispatcher();
+        $this->fields = $fields;
     }
 
     public function find(int $id): ?Item
@@ -118,7 +130,7 @@ final readonly class SqliteItemRepository implements ItemRepository
             }
 
             $newId = (int) $this->connection->lastInsertId();
-            $this->syncFts($newId, $item->name, $item->label, $item->data->toArray());
+            $this->syncFts($newId, $item->categoryId, $item->name, $item->label, $item->data->toArray());
 
             $created_item = new Item(
                 id: $newId,
@@ -161,7 +173,7 @@ final readonly class SqliteItemRepository implements ItemRepository
             throw self::translatePdoException($e);
         }
 
-        $this->syncFts($item->id, $item->name, $item->label, $item->data->toArray());
+        $this->syncFts($item->id, $item->categoryId, $item->name, $item->label, $item->data->toArray());
 
         $updated = new Item(
             id: $item->id,
@@ -201,17 +213,17 @@ final readonly class SqliteItemRepository implements ItemRepository
     }
 
     /**
-     * Insert-or-replace the FTS index row for `$id`. Body is a flattened
-     * concatenation of all string / numeric values in `$data` so search
-     * matches across every dynamic field — see the `0002_fts.sql` migration
-     * comment for the rationale (hybrid index, post-Phase-8 we'll respect
-     * the per-field `searchable` flag once a use case asks for opt-out).
+     * Insert-or-replace the FTS index row for `$id`. When a
+     * `FieldRepository` was wired into this repository, only the fields
+     * whose `searchable` flag is true are written to the body; otherwise
+     * (the legacy 2.0/2.1 constructor signature) every dynamic value goes
+     * in and a one-time deprecation notice fires.
      *
      * @param array<string, mixed> $data
      */
-    private function syncFts(int $id, ?string $name, ?string $label, array $data): void
+    private function syncFts(int $id, int $categoryId, ?string $name, ?string $label, array $data): void
     {
-        $body = ($name ?? '') . ' ' . ($label ?? '') . ' ' . self::flattenForSearch($data);
+        $body = FtsBody::compose($name, $label, $data, $this->searchableKeysFor($categoryId));
 
         $delete = $this->connection->prepare('DELETE FROM items_fts WHERE rowid = :id');
         $delete->execute([':id' => $id]);
@@ -228,17 +240,44 @@ final readonly class SqliteItemRepository implements ItemRepository
     }
 
     /**
-     * @param array<string, mixed> $data
+     * Return the list of field names whose `searchable` flag is true for
+     * `$categoryId`, or `null` when no `FieldRepository` was wired (legacy
+     * 2.0/2.1 signature — fall back to "index everything"). The first such
+     * fall-through emits an `E_USER_DEPRECATED` notice once per process so
+     * external integrators get a heads-up without breaking.
+     *
+     * Each call re-queries the fields table. The query is local SQLite
+     * (sub-millisecond for the dozens of fields per category iManager
+     * realistically targets), and skipping the cache avoids staleness in
+     * long-running CLI processes that mutate the schema mid-run.
+     *
+     * @return list<string>|null
      */
-    private static function flattenForSearch(array $data): string
+    private function searchableKeysFor(int $categoryId): ?array
     {
-        $parts = [];
-        array_walk_recursive($data, static function (mixed $value) use (&$parts): void {
-            if (\is_string($value) || \is_int($value) || \is_float($value)) {
-                $parts[] = (string) $value;
+        if ($this->fields === null) {
+            static $warned = false;
+            if (! $warned) {
+                $warned = true;
+                @trigger_error(
+                    'SqliteItemRepository was constructed without a FieldRepository — '
+                    . 'FTS will index every field value (legacy 2.0/2.1 behavior). Pass '
+                    . 'the FieldRepository into the third constructor argument to honor '
+                    . 'per-field searchable flags. The no-arg form will become an error '
+                    . 'in 3.0.',
+                    \E_USER_DEPRECATED,
+                );
             }
-        });
-        return implode(' ', $parts);
+            return null;
+        }
+
+        $keys = [];
+        foreach ($this->fields->findByCategory($categoryId) as $field) {
+            if ($field->searchable) {
+                $keys[] = $field->name;
+            }
+        }
+        return $keys;
     }
 
     public function query(Query $query): array
