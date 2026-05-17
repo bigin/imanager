@@ -2,7 +2,7 @@
 
 The storage subsystem is **four repository contracts** plus one
 implementation (`SqliteStorage`). Everything host code talks to is
-defined by an interface — swap the implementation, keep your code.
+defined by an interface: swap the implementation, keep your code.
 
 > Source: `src/Storage/{Storage,CategoryRepository,FieldRepository,ItemRepository,FileRepository,SchemaManager,Migration}.php`,
 > `src/Storage/Sqlite/SqliteStorage.php`, `src/Storage/InMemory/`.
@@ -13,7 +13,7 @@ defined by an interface — swap the implementation, keep your code.
 
 ## Storage interface
 
-The umbrella interface — one object holds references to the four
+The umbrella interface: one object holds references to the four
 repositories and to the transaction boundary.
 
 ```php
@@ -55,8 +55,8 @@ interface CategoryRepository
 
 ### Reads
 
-- `find()` and `findBySlug()` return `null` for unknown identifiers —
-  they do **not** throw.
+- `find()` and `findBySlug()` return `null` for unknown identifiers.
+  They do **not** throw.
 - `findAll()` returns categories ordered by `position`, then `id`.
 
 ### `save()`
@@ -102,7 +102,7 @@ interface FieldRepository
 
 ### Reads
 
-- `findByName()` is the standard lookup — fields are uniquely
+- `findByName()` is the standard lookup: fields are uniquely
   identified by `(categoryId, name)`.
 - `findByCategory()` returns fields ordered by `position`, then
   `id`.
@@ -156,7 +156,7 @@ order":
 
 ### `query()` and `count()`
 
-The general-purpose entry point — accepts an immutable `Query`
+The general-purpose entry point: accepts an immutable `Query`
 value object (see [Query](query.md)). `count()` runs the same
 predicate as `query()` but returns the row count instead of the
 hydrated items. Useful for pagination headers.
@@ -164,7 +164,7 @@ hydrated items. Useful for pagination headers.
 ### `save()`
 
 - Writes `$item->data` to the SQLite `data` column **verbatim**.
-  `save()` does **not** invoke field-type plugins — validation is
+  `save()` does **not** invoke field-type plugins; validation is
   the host's responsibility (see the
   [Field-types cookbook](../field-types.md#the-validation-pipeline)
   for the canonical "validate before save" pattern). If you skip
@@ -174,7 +174,7 @@ hydrated items. Useful for pagination headers.
   save. Run your input through `FieldTypeRegistry::get($field->type)->validate(...)`
   before constructing the `Item`.
 - Promotes "hot" (indexed) field values into generated columns
-  automatically — you do **not** need to update them separately.
+  automatically. You do **not** need to update them separately.
 - **Throws `NotFoundException`** if you save an item with a
   non-existent `categoryId`, or update an item whose `id` no longer
   exists.
@@ -244,17 +244,18 @@ For each field that has `indexed = true`, the SQLite schema carries a
 generated column:
 
 ```sql
-"field_<name>" AS (json_extract(data, '$.<name>')) STORED
+gen_<categoryId>_<fieldName> AS (json_extract(data, '$.<fieldName>')) VIRTUAL
 ```
 
+plus a matching index on `(category_id, gen_<categoryId>_<fieldName>)`.
 The column's storage affinity follows `FieldType::sqliteAffinity()`
-(text, integer, real, blob). You query against `field_<name>` via
-the normal `Query` builder; the builder picks the generated column
-automatically when the field is hot, and falls back to
-`json_extract(data, ...)` when it isn't.
+(text, integer, real, blob). You query against the generated column
+via the normal `Query` builder; the builder picks it automatically
+when the field is hot, and falls back to `json_extract(data, ...)`
+when it isn't.
 
 Toggling `indexed` from `false` → `true` on an existing field requires
-a schema migration — it changes the table shape. The library does
+a schema migration: it changes the table shape. The library does
 **not** auto-migrate on save; you write the migration explicitly under
 `config/schema/` and run `schema:migrate`.
 
@@ -269,7 +270,7 @@ public function transactional(callable $work): mixed;
 `SqliteStorage::transactional()` wraps the callback in
 `BEGIN IMMEDIATE` / `COMMIT`, rolls back on any exception, and
 returns whatever the callback returned. Domain events are dispatched
-**after** commit — a listener that throws does not undo the work.
+**after** commit; a listener that throws does not undo the work.
 
 ```php
 $itemId = $storage->transactional(function () use ($storage, $blog) {
@@ -279,15 +280,15 @@ $itemId = $storage->transactional(function () use ($storage, $blog) {
 });
 ```
 
-Nested calls are **not** supported — `SqliteStorage` will throw on a
+Nested calls are **not** supported: `SqliteStorage` will throw on a
 nested `transactional()`. Compose your work as one outer transaction.
 
 ---
 
 ## SqliteStorage
 
-The bundled implementation. You normally never construct it directly
-— `DefaultBootstrap::boot()` does. Construct manually only when you
+The bundled implementation. You normally never construct it directly;
+`DefaultBootstrap::boot()` does. Construct manually only when you
 want a different PDO or a different event dispatcher:
 
 ```php
@@ -352,15 +353,16 @@ The bundled migrations under `config/schema/` are:
 
 | Version | File | What it does |
 |---|---|---|
-| `0001` | `0001_initial.php` | `categories`, `fields`, `items`, `schema_version`. |
-| `0002` | `0002_fts.php` | FTS5 mirror over `items` + sync triggers. |
-| `0003` | `0003_files.php` | `files` table with item / field foreign keys. |
-| `0004` | `0004_files_title.php` | `files.title` column for human captions. |
+| `0001` | `0001_initial.sql` | `categories`, `fields`, `items`, `schema_version`. |
+| `0002` | `0002_fts.sql` | FTS5 mirror over `items` + sync triggers. |
+| `0003` | `0003_files.sql` | `files` table with item / field foreign keys. |
+| `0004` | `0004_files_title.sql` | `files.title` column for human captions. |
+| `0005` | `0005_searchable_defaults.sql` | Promotes existing prose-typed fields (`text`/`longtext`/`editor`/`slug`) to `searchable = 1` so 2.2.0's per-field FTS filter keeps existing coverage. |
 
 Migrations are applied in `version()` order. `currentVersion()` is
 the **highest** applied version. `pending()` enumerates everything
 above that. `migrate()` returns the count of migrations actually
-applied this call — `0` is normal on a hot start.
+applied this call; `0` is normal on a hot start.
 
 ---
 
@@ -370,16 +372,16 @@ All storage exceptions implement the marker interface
 `Imanager\Exception\ImanagerException`. You can catch any specific
 type, or catch the marker if you want a single net:
 
-- `NotFoundException` — repository can't locate the requested row
+- `NotFoundException`: repository can't locate the requested row
   (delete of nothing, save of unknown id, save against unknown
   category).
-- `ValidationException` — value rejected by a field-type plugin, or
+- `ValidationException`: value rejected by a field-type plugin, or
   a uniqueness constraint failed. Carries the field name and
   `InputErrorCode` when raised by a plugin.
-- `StorageException` — any other SQLite-layer failure (constraint
+- `StorageException`: any other SQLite-layer failure (constraint
   violation we didn't anticipate, transient I/O). Wraps the
   underlying `PDOException` as `$previous`.
-- `SchemaException` — `SchemaManager` could not parse or apply a
+- `SchemaException`: `SchemaManager` could not parse or apply a
   migration.
 
 ---

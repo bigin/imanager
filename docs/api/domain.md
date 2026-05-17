@@ -12,7 +12,7 @@ happens at the repository layer; the domain itself is just data.
 
 ## Category
 
-A kind of thing — `Blog`, `Page`, `User`. Each category owns its own
+A kind of thing: `Blog`, `Page`, `User`. Each category owns its own
 field schema and its own slug. Categories are uniquely identified by
 both `name` and `slug` within an install (the storage layer rejects
 duplicates on either column).
@@ -37,10 +37,10 @@ final readonly class Category
 
 ### Lifecycle
 
-- `id === null` — a fresh value object that has not been persisted.
+- `id === null`: a fresh value object that has not been persisted.
   Pass to `CategoryRepository::save()` to get back a clone with `id`
   assigned and `created`/`updated` populated.
-- `id !== null` — an already-persisted record. Saving again **updates**
+- `id !== null`: an already-persisted record. Saving again **updates**
   that row; the repository throws `NotFoundException` if the row no
   longer exists.
 
@@ -57,7 +57,7 @@ $blog = $categories->save(new Category(null, 'Blog', 'blog'));
 
 A typed column on a category. Every item in the category may carry a
 value for every defined field. Fields are uniquely identified by
-`(categoryId, name)` — the same `name` may exist in different
+`(categoryId, name)`. The same `name` may exist in different
 categories.
 
 ```php
@@ -95,13 +95,14 @@ final readonly class Field
 ### `config`
 
 An untyped `array<string,mixed>` whose shape is defined per
-field-type plugin (see [Field types](field-types.md)). Examples:
+field-type plugin (see [Field types](field-types.md) for the
+full key map per built-in). Examples:
 
-- `TextFieldType`: `['max' => 255]`
+- `TextFieldType`: `['maxLength' => 255, 'minLength' => 2]`
 - `DropdownFieldType`: `['options' => ['a' => 'Apple', 'b' => 'Banana']]`
-- `ImageuploadFieldType`: `['maxBytes' => 5_000_000, 'mimes' => ['image/jpeg', 'image/png']]`
+- `ImageuploadFieldType`: `['acceptedExtensions' => 'jpe?g|png', 'maxSizeBytes' => 5_000_000]`
 
-The repository round-trips `config` verbatim — it's the plugin's job
+The repository round-trips `config` verbatim: it's the plugin's job
 to make sense of its own shape.
 
 ### Example
@@ -120,7 +121,7 @@ An instance of a category. Field values live in a typed
 `FieldValueBag` exposed on `$item->data`. The bag is the *whole*
 payload; "hot" fields (those declared `indexed` on the schema) are
 copied into SQLite generated columns on save and kept in sync
-automatically — you don't write to them separately.
+automatically, you don't write to them separately.
 
 ```php
 namespace Imanager\Domain;
@@ -150,7 +151,7 @@ final readonly class Item
 The constructor accepts either an `array` or a `FieldValueBag` for
 ergonomics: most callers build items from arrays
 (`data: ['title' => 'Hello']`). Internally it's always coerced to a
-`FieldValueBag` — that's what you read back from `$item->data`.
+`FieldValueBag`, which is what you read back from `$item->data`.
 
 ### Example
 
@@ -192,7 +193,7 @@ final readonly class FieldValueBag
 ```
 
 The bag does **not** validate values against the field schema, and
-neither does `ItemRepository::save()` — the repository writes
+neither does `ItemRepository::save()`: the repository writes
 `Item::$data` verbatim. Validation is the host's responsibility:
 call `FieldTypeRegistry::get($field->type)->validate(...)` before
 constructing the `Item` you pass to `save()`. The
@@ -261,7 +262,7 @@ Convenience that checks the MIME prefix; thumbnail generation in
 
 Every successful repository mutation publishes one of nine events
 through the PSR-14 dispatcher wired in `DefaultBootstrap`. Subscribers
-receive the event *after* the SQLite transaction has committed — a
+receive the event *after* the SQLite transaction has committed. A
 listener that throws does **not** roll back the write.
 
 All events implement the marker interface `DomainEvent`:
@@ -330,8 +331,8 @@ final readonly class ItemUpdated implements DomainEvent
 
 ### Deleted events
 
-Deleted events only carry the *id* (and category id for fields/items)
-— by the time the event fires, the row is gone:
+Deleted events only carry the *id* (and category id for fields/items).
+By the time the event fires, the row is gone:
 
 ```php
 final readonly class CategoryDeleted implements DomainEvent
@@ -360,7 +361,7 @@ final readonly class ItemDeleted implements DomainEvent
 ```
 
 `FileCreated` / `FileUpdated` / `FileDeleted` are deliberately
-**not** emitted today — file metadata moves with item state and the
+**not** emitted today: file metadata moves with item state and the
 repository contract for files is intentionally narrower.
 
 ### Subscribing
@@ -379,7 +380,7 @@ $provider->subscribe(ItemDeleted::class, function (ItemDeleted $event): void {
 });
 ```
 
-Listener instantiation can be lazy — wrap the closure body in a
+Listener instantiation can be lazy, wrap the closure body in a
 `static $listener = null` guard if construction is expensive (e.g.
 the listener queries the DB on construct to learn which category id
 it watches).

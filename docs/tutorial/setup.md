@@ -9,7 +9,7 @@ minutes if you copy-paste, 15 if you pause to read the asides.
 
 - PHP **8.2 or newer**
 - The extensions iManager actually opens: `pdo_sqlite`, `mbstring`,
-  `gd`, `dom`, `json`. They're in every default PHP install — if
+  `gd`, `dom`, `json`. They're in every default PHP install. If
   yours is stripped down (Alpine container, Debian `php-cli` only),
   `apt install` / `apk add` the missing ones.
 - **Composer 2**. Composer 1 won't resolve the `^8.2` PHP constraint.
@@ -31,9 +31,9 @@ mkdir notebook && cd notebook
 composer require bigins/imanager:^2.0
 ```
 
-Composer pulls iManager 2.0.2 (or newer in the 2.x line) and writes
+Composer pulls iManager 2.2.1 (or newer in the 2.x line) and writes
 `composer.json` + `composer.lock` + a `vendor/` tree. There's nothing
-else to install — iManager is a pure-PHP library, no native build
+else to install. iManager is a pure-PHP library, no native build
 step, no compile-time configuration.
 
 ## The shape of an iManager app
@@ -92,7 +92,7 @@ What each parameter means:
 | `databasePath` | The SQLite file. iManager creates it on first call **and** runs the schema migrations into it — you don't run `CREATE TABLE` yourself. The parent directory (`data/` here) is auto-created if missing. |
 | `uploadsPath` | Where binary uploads (file / image fields) get stored. Subdirectories are `<itemId>/<fieldId>/<filename>`. Auto-created if missing. |
 | `uploadsUrl` | The URL prefix your webserver serves `uploadsPath` from. Used when iManager hands you a `File` object and you want to render its URL. For the notebook example we never serve files, so this value is just along for the ride. |
-| `cachePath` | Where the optional filesystem cache lives. iManager itself doesn't write here in the standard service graph; some hosts (e.g. Scriptor's frontend) plug a `FilesystemCache` in via this path. Auto-created if missing. |
+| `cachePath` | Where the optional filesystem cache lives. iManager itself doesn't write here in the standard service graph; some hosts plug a `FilesystemCache` in via this path (e.g. to cache rendered HTML snippets between requests). Auto-created if missing. |
 
 If you'd rather not have iManager `mkdir` for you — say, you want to
 manage filesystem layout from your deploy scripts — use
@@ -125,7 +125,7 @@ Categories and fields define the **shape**; items are the **content**.
 Add to `notebook.php`:
 
 ```php
-// Idempotent — ensure() inserts on first call and returns the
+// Idempotent: ensure() inserts on first call and returns the
 // existing row on every later call.
 $note = $categories->ensure(new Category(null, 'Note', 'note'));
 
@@ -136,7 +136,7 @@ $fields->ensure(
 
 A few things to notice:
 
-- **`ensure()` vs `save()`**: `ensure()` is upsert by natural key —
+- **`ensure()` vs `save()`**: `ensure()` is upsert by natural key:
   for categories that's the unique `slug`, for fields it's
   `(categoryId, name)`. On a hit, the existing row is returned
   unchanged; on a miss, a new row is inserted. `save()` is the
@@ -175,12 +175,12 @@ Items have their own `name` / `label` distinction:
 - `label` is the human-readable title that shows up in lists.
 
 `data` is the field values, keyed by `Field::name`. Pass an array
-and iManager wraps it in a `FieldValueBag` for you — `$saved->data`
+and iManager wraps it in a `FieldValueBag` for you. `$saved->data`
 on the returned item is the bag, not the raw array. Bags are
 immutable, so the next chapters use `$item->data->get('body')` to
 read and `$item->data->with('body', $new)` to update.
 
-> **Heads up — `save()` does not validate.** You can write any
+> **Heads up: `save()` does not validate.** You can write any
 > nonsense into `data` here. iManager's validation contract is a
 > separate `FieldTypeRegistry::get($type)->validate(...)` call that
 > the [validation chapter](validation.md) covers in full. For a
@@ -200,7 +200,7 @@ foreach ($all as $item) {
 
 `findByCategory()` returns every item in a category in `position`
 order. For one-off lookups you'd use `$items->find($id)` (by primary
-key) — there's no `findByName()` on the item repo today, so if you
+key). There's no `findByName()` on the item repo today, so if you
 need lookups by `Item::name` you go through `$items->query(...)`
 (see [`docs/query-cookbook.md`](../query-cookbook.md)).
 
@@ -218,7 +218,7 @@ Wrote item #1
     Hello from iManager.
 ```
 
-Second run (no cleanup) prints the same line plus a second item —
+Second run (no cleanup) prints the same line plus a second item.
 `ensure()` saw both the category and the field already existed and
 returned them as-is, then the item save inserted a new row (items
 have no UNIQUE on name, so duplicates are allowed). Each subsequent
@@ -232,8 +232,8 @@ Wrote item #2
     Hello from iManager.
 ```
 
-That's the natural shape of an iManager install — schema is
-declarative + idempotent, content is append-only by default.
+That's the natural shape of an iManager install: schema is
+declarative and idempotent, content is append-only by default.
 
 ## What just happened, in one paragraph
 
@@ -249,18 +249,18 @@ declare a category (`Note`), a field (`body`), and an item
 
 ## Next steps
 
-- **[Design a content schema](schema.md)** — picking the right
+- **[Design a content schema](schema.md)**, picking the right
   field types, when to mark a field `indexed` or `searchable`, and
   how to make your schema setup idempotent.
-- **[Validate user input before saving](validation.md)** — the
+- **[Validate user input before saving](validation.md)**, the
   validation contract every external input has to pass through.
 
 ## Reference
 
-- [`Imanager\DefaultBootstrap`](../../src/DefaultBootstrap.php) — the
+- [`Imanager\DefaultBootstrap`](../../src/DefaultBootstrap.php), the
   boot helper itself, fully commented.
-- [`docs/api/domain.md`](../api/domain.md) — the value objects
+- [`docs/api/domain.md`](../api/domain.md), the value objects
   (`Category`, `Field`, `Item`, `FieldValueBag`) the snippets above
   passed around.
-- [`docs/api/storage.md`](../api/storage.md) — the three repositories
+- [`docs/api/storage.md`](../api/storage.md), the three repositories
   in detail.

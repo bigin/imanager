@@ -16,17 +16,17 @@ them across four small types so each one has a single concern:
 
 | Type | Concern | Lives in |
 |---|---|---|
-| `UploadedFile` | The source — wraps either `$_FILES[...]` or a local path. HTTP-agnostic. | `src/Files/UploadedFile.php` |
-| `UploadConstraints` | The policy — max bytes, allowed MIME types, allowed extensions. Caller-built; not derived from `Field::config`. | `src/Files/UploadConstraints.php` |
-| `UploadHandler` | The orchestrator — validates against constraints, stores bytes, records metadata. Stateless. | `src/Files/UploadHandler.php` |
-| `FileStorage` / `FileRepository` | The destinations — bytes go through `FileStorage` (default: local disk), metadata goes through `FileRepository`. | `src/Files/FileStorage.php`, `src/Storage/FileRepository.php` |
+| `UploadedFile` | The source: wraps either `$_FILES[...]` or a local path. HTTP-agnostic. | `src/Files/UploadedFile.php` |
+| `UploadConstraints` | The policy: max bytes, allowed MIME types, allowed extensions. Caller-built; not derived from `Field::config`. | `src/Files/UploadConstraints.php` |
+| `UploadHandler` | The orchestrator: validates against constraints, stores bytes, records metadata. Stateless. | `src/Files/UploadHandler.php` |
+| `FileStorage` / `FileRepository` | The destinations: bytes go through `FileStorage` (default: local disk), metadata goes through `FileRepository`. | `src/Files/FileStorage.php`, `src/Storage/FileRepository.php` |
 
 Decoupling these means you can:
 
 - Test the handler without spinning up `$_FILES` (use
   `UploadedFile::fromPath()` for local files).
 - Swap the storage backend without touching the handler (S3,
-  CAS store — anything that implements `FileStorage`).
+  CAS store: anything that implements `FileStorage`).
 - Reuse the same handler from an HTTP endpoint, a CLI import
   script, or a CI seed.
 
@@ -73,8 +73,8 @@ $photoField = $fields->ensure(
 
 The `photo` field is `FieldType::Imageupload`. The
 `->maxBytes()` and `->mimes()` setters write into the field's
-config — which is **documentation, not enforcement**. The actual
-enforcement comes from `UploadConstraints`, which you build
+config. That config is **documentation, not enforcement**. The
+actual enforcement comes from `UploadConstraints`, which you build
 separately. See the "Constraints in two places" callout below.
 
 ## A first upload
@@ -126,8 +126,8 @@ $file = $uploader->handle(
 ```
 
 > **Why `UploadHandler` isn't in the container.** Most of iManager's
-> wiring lives in `DefaultBootstrap`, but `UploadHandler` does not
-> — it's a four-line `new` and the dependencies are all explicit
+> wiring lives in `DefaultBootstrap`, but `UploadHandler` does not.
+> It's a four-line `new` and the dependencies are all explicit
 > (storage / repository / sanitizer / image processor). Adding it
 > to the container would just hide that. Construct it where you
 > need it; one or two lines max.
@@ -142,7 +142,7 @@ echo "MIME: {$file->mime}\n";           // sniffed, not trusted from the browser
 
 A few things to notice:
 
-- **`$file->path` is storage-relative** — `7/3/sunset-2026.jpg`,
+- **`$file->path` is storage-relative**: `7/3/sunset-2026.jpg`,
   not `/var/www/uploads/7/3/sunset-2026.jpg`. The format is
   `<itemId>/<fieldId>/<safeName>`. Storage-relative paths let you
   swap backends without rewriting URLs.
@@ -177,14 +177,14 @@ flow into `UploadHandler::handle()`. The handler reads from
 So enforcement requires *both*:
 
 ```php
-// Schema metadata — documents the intent, persists on the field row:
+// Schema metadata: documents the intent, persists on the field row:
 $fields->ensure(
     Field::image($gallery->id, 'photo', 'Photo')
         ->maxBytes(2_000_000)
         ->mimes('image/jpeg', 'image/png'),
 );
 
-// Runtime enforcement — what the handler actually checks:
+// Runtime enforcement: what the handler actually checks:
 $constraints = new UploadConstraints(
     maxSizeBytes:      2_000_000,
     allowedExtensions: ['jpg', 'jpeg', 'png'],
@@ -221,7 +221,7 @@ $file = $uploader->handle($upload, $item->id, $photoField->id, $constraints);
 
 `fromPath()` bypasses the `is_uploaded_file()` HTTP-guard because
 there's nothing HTTP-shaped about the input. Same handler, same
-constraints, same `File` output — only the source differs.
+constraints, same `File` output. Only the source differs.
 
 ## Thumbnails
 
@@ -249,8 +249,8 @@ $thumbRelativePath = \sprintf(
 $storage->write($thumbRelativePath, $thumbBytes);
 ```
 
-The handler does **not** generate thumbnails for you — only fills
-in `$file->width` / `$file->height` if you passed an
+The handler does **not** generate thumbnails for you: it only
+fills in `$file->width` / `$file->height` if you passed an
 `ImageProcessor` to it. Thumbnail generation is a caller-side
 decision because there's no one-size-fits-all answer (lazy vs eager,
 single size vs responsive set, where the thumbs live).
@@ -265,8 +265,8 @@ web server's rewrite rule sends 404s to a PHP handler that:
 4. Writes it via `$storage->write()`.
 5. Returns the bytes.
 
-Every subsequent request hits the now-existing static file directly
-— no PHP roundtrip until the next size is asked for. The whole
+Every subsequent request hits the now-existing static file directly,
+no PHP roundtrip until the next size is asked for. The whole
 thumbnail tree lives next to the original under `<uploadsPath>`,
 no separate cache directory to manage.
 
@@ -296,7 +296,7 @@ $covers = $files->findByItemAndField($item->id, $photoField->id);
 $gallery = $files->findByItemAndField($item->id, $galleryField->id);
 ```
 
-Files within a field come back in `position` order — useful when
+Files within a field come back in `position` order, useful when
 the editor lets users drag-reorder a gallery. The
 `$file->withPosition($n)` value-object helper lets you generate a
 reorder write quickly:
@@ -311,7 +311,7 @@ foreach ($reorderedIds as $position => $fileId) {
 ## File titles (caption-shaped metadata)
 
 `File::$title` is a typed column (separate from `name`, which is
-the on-disk filename). Use it for human-readable captions —
+the on-disk filename). Use it for human-readable captions:
 `$file->name` will be the sanitized filename
 (`portrait-jane-doe.jpg`), while `$file->title` is whatever the
 editor typed ("Jane Doe at the conference, 2026").
@@ -326,7 +326,7 @@ shouldn't.
 
 ## Cleanup is somebody else's job
 
-The lifecycle chapter covers this in detail — short version: when
+The lifecycle chapter covers this in detail. Short version: when
 you `$items->delete($itemId)`, the file METADATA cascades away via
 the FK relationship, but the **physical bytes** on disk do not.
 That's intentional (FileStorage backends may not support O(1)
@@ -337,10 +337,10 @@ the canonical pattern.
 
 ## Swapping the storage backend
 
-`LocalFileStorage` is the default — bytes go to a directory under
+`LocalFileStorage` is the default: bytes go to a directory under
 `uploadsPath`, URLs use `uploadsUrl` as the prefix. For S3, CDN
 origins, or a content-addressed store, implement
-`FileStorage`'s five-method interface:
+`FileStorage`'s seven-method interface:
 
 ```php
 interface FileStorage
@@ -375,7 +375,9 @@ $tmp = tempnam(sys_get_temp_dir(), 'imanager-thumb-');
 file_put_contents($tmp, $storage->read($file->path));
 $thumbBytes = $images->thumbnail($tmp, width: 320);
 unlink($tmp);
-$storage->write($thumbThumbPath, $thumbBytes);
+
+$thumbRelative = sprintf('%d/%d/thumb-320_%s', $file->itemId, $file->fieldId, $file->name);
+$storage->write($thumbRelative, $thumbBytes);
 ```
 
 Slightly awkward; a future iManager release may add a
@@ -392,7 +394,7 @@ small types — `UploadedFile` (the source), `UploadConstraints`
 upload (`fromPhpUpload`) and a programmatic one (`fromPath`)
 through the same handler. You also learned the most common
 gotcha: `Field::image()->maxBytes(...)` is *metadata*, not
-enforcement — runtime enforcement lives in `UploadConstraints`,
+enforcement. Runtime enforcement lives in `UploadConstraints`,
 and the two have to be kept in sync (a future release may
 bridge them, but today it's your job). You saw thumbnail
 generation as a caller-side concern (`ImageProcessor::thumbnail`
@@ -403,18 +405,18 @@ an S3-shaped backend by overwriting one container binding.
 
 ## Reference
 
-- [`src/Files/UploadHandler.php`](../../src/Files/UploadHandler.php)
-  — the orchestrator, fully commented; the file is short and
+- [`src/Files/UploadHandler.php`](../../src/Files/UploadHandler.php),
+  the orchestrator, fully commented; the file is short and
   worth reading once.
-- [`src/Files/UploadConstraints.php`](../../src/Files/UploadConstraints.php)
-  — the policy value object, with the `::images()` convenience.
-- [`src/Files/FileStorage.php`](../../src/Files/FileStorage.php)
-  — the backend interface; `LocalFileStorage` is the default
+- [`src/Files/UploadConstraints.php`](../../src/Files/UploadConstraints.php),
+  the policy value object, with the `::images()` convenience.
+- [`src/Files/FileStorage.php`](../../src/Files/FileStorage.php),
+  the backend interface; `LocalFileStorage` is the default
   implementation.
-- [`src/Files/ImageProcessor.php`](../../src/Files/ImageProcessor.php)
-  — the intervention/image v3 wrapper with `dimensions()` and
+- [`src/Files/ImageProcessor.php`](../../src/Files/ImageProcessor.php),
+  the intervention/image v3 wrapper with `dimensions()` and
   `thumbnail()`.
-- [`docs/api/domain.md`](../api/domain.md#file) — the `File`
+- [`docs/api/domain.md`](../api/domain.md#file), the `File`
   value object.
-- [`lifecycle.md`](lifecycle.md#wiring-file-cleanup-yourself) —
+- [`lifecycle.md`](lifecycle.md#wiring-file-cleanup-yourself),
   the cleanup listener pattern.

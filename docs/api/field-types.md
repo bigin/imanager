@@ -6,7 +6,7 @@ Field types are the plugin layer that decides:
    row) is **coerced and validated** into a domain value.
 2. What **SQLite affinity** the value uses if it's promoted to a hot
    column.
-3. How the value is **rendered** as an HTML form input — for hosts
+3. How the value is **rendered** as an HTML form input, for hosts
    that lean on the library's rendering for their editor UI.
 
 This page is the **reference**: enum cases, the plugin interface,
@@ -23,7 +23,7 @@ how-to for writing your own type lives in the
 ## `FieldType` enum
 
 The 16 case names every install knows out of the box. The `value` of
-each case is also the string used in storage and in the registry — a
+each case is also the string used in storage and in the registry. A
 field's `type` is stored as this string in the `fields` table.
 
 ```php
@@ -54,7 +54,7 @@ enum FieldType: string
 
 `sqliteAffinity()` returns one of `Text` / `Integer` / `Real` /
 `Blob`. The result is consumed by the schema generator when a
-field is `indexed = true` — the generated column's type is derived
+field is `indexed = true`. The generated column's type is derived
 from this value.
 
 ---
@@ -86,28 +86,49 @@ interface FieldTypePlugin
 ### `name()` / `affinity()`
 
 Static because the registry needs to resolve them without
-instantiating the plugin. The `name()` is what the registry keys on
-— it **must** equal the `FieldType` enum value for built-ins, and
+instantiating the plugin. The `name()` is what the registry keys on:
+it **must** equal the `FieldType` enum value for built-ins, and
 should be a unique slug-like string for custom plugins. The
 `affinity()` mirrors `FieldType::sqliteAffinity()` for the same
-reason — schema codegen needs it before any instance exists.
+reason: schema codegen needs it before any instance exists.
 
 ### `defaultConfig()`
 
 Returns the field's `config` array when a host (typically an editor
-UI) creates a new field of this type. The shape is plugin-specific —
-the library never inspects it. Common patterns:
+UI) creates a new field of this type. The shape is plugin-specific.
+The library never inspects it. The exact keys each built-in plugin
+ships, with their defaults:
 
 | Plugin | `defaultConfig()` keys |
 |---|---|
-| `TextFieldType` | `min`, `max`, `pattern` |
-| `LongTextFieldType` | `max`, `format` (`'plain'` / `'markdown'`) |
-| `DropdownFieldType` | `options` (`array<string,string>`), `multiple` (`bool`) |
-| `IntegerFieldType` | `min`, `max` |
-| `MoneyFieldType` | `currency`, `precision` |
-| `ImageuploadFieldType` | `maxBytes`, `mimes`, `maxWidth`, `maxHeight` |
-| `FileuploadFieldType` | `maxBytes`, `mimes`, `multiple` |
-| `FilepickerFieldType` | `categoryId` (target items), `searchable` |
+| `TextFieldType` | `maxLength` (255), `minLength` (0), `placeholder` (`''`) |
+| `LongTextFieldType` | `maxLength` (65535), `minLength` (0), `rows` (6), `placeholder` (`''`) |
+| `EditorFieldType` | `mode` (`'markdown'`), `maxLength` (65535), `rows` (12) |
+| `SlugFieldType` | `maxLength` (128) |
+| `DatepickerFieldType` | `min` (`null`), `max` (`null`) |
+| `DropdownFieldType` | `options` (`array<string,string>`) |
+| `CheckboxFieldType` | `label` (`''`) |
+| `IntegerFieldType` | `min` (`null`), `max` (`null`), `step` (1) |
+| `DecimalFieldType` | `min` (`null`), `max` (`null`), `precision` (2) |
+| `MoneyFieldType` | `currency` (`'EUR'`), `min` (`null`), `max` (`null`), `precision` (2) |
+| `PasswordFieldType` | `minLength` (8), `placeholder` (`'(unchanged)'`) |
+| `HiddenFieldType` | `maxLength` (1024) |
+| `ArrayListFieldType` | `maxItems` (100), `itemMaxLength` (255), `rows` (6) |
+| `FilepickerFieldType` | `acceptedExtensions` (`'gif\|jpe?g\|png\|pdf'`) |
+| `FileuploadFieldType` | `acceptedExtensions` (`'gif\|jpe?g\|png\|pdf\|zip'`), `maxFiles` (10), `maxSizeBytes` (10 MiB) |
+| `ImageuploadFieldType` | `acceptedExtensions` (`'gif\|jpe?g\|png\|webp'`), `maxFiles` (10), `maxSizeBytes` (8 MiB), `thumbWidth` (150), `thumbHeight` (0) |
+
+> **Fluent setters vs runtime keys.** The 2.1.0 fluent setters
+> (`->maxBytes()`, `->mimes()`, `->format()`) write into config under
+> their *setter-name* key (`'maxBytes'`, `'mimes'`, `'format'`), which
+> the upload-typed plugins do **not** read at runtime: they read
+> `'maxSizeBytes'` and `'acceptedExtensions'`. The setter-name keys
+> persist as documentation alongside the schema, and runtime
+> enforcement happens through `UploadConstraints` rather than the
+> plugin's config (see the
+> [Files tutorial](../tutorial/files.md#constraints-in-two-places-read-this-twice)).
+> If you're setting upload constraints in code and want them honored
+> by the runtime, build `UploadConstraints` explicitly.
 
 ### `validate()`
 
@@ -118,16 +139,16 @@ the canonical domain form, **or refuse** with a specific error code:
 public function validate(mixed $rawValue, Field $field): ValidationResult;
 ```
 
-`$rawValue` is whatever the caller passed — a string, an int, an
+`$rawValue` is whatever the caller passed: a string, an int, an
 array, `null`, `false`. The plugin decides what it accepts. Return
 `ValidationResult::ok($coerced)` with the canonical value, or
 `ValidationResult::failed(InputErrorCode::*, $message)` to refuse.
 
-`validate()` is invoked by **host code** — typically the editor
+`validate()` is invoked by **host code**: typically the editor
 controller that receives the form submission. `ItemRepository::save()`
 itself writes `$item->data` verbatim and does **not** route values
 through the registry. The canonical pattern is "validate, then
-save" — the
+save". The
 [Field-types cookbook](../field-types.md#5-registering-a-custom-plugin)
 walks through the call shape.
 
@@ -139,7 +160,7 @@ that round-trips through `validate()`". Use `RenderContext::$inputName`
 as the form-field name; the snippet must be safe to drop inside any
 parent `<form>`.
 
-`render()` is purely an *editor* concern — your application's read
+`render()` is purely an *editor* concern: your application's read
 templates touch `$item->data->get($name)` directly and do their own
 rendering. If you don't host an editor UI, `render()` can return an
 empty string.
@@ -180,7 +201,7 @@ $registry = $container->get(FieldTypeRegistry::class);
 $registry->register(new MyColourPickerFieldType());
 ```
 
-A custom type appears under whatever `name()` returns — pick
+A custom type appears under whatever `name()` returns: pick
 something that won't collide with the 16 built-ins. The registry has
 no namespacing.
 
@@ -212,7 +233,7 @@ named constructors' use, not for callers.
 
 ### `InputErrorCode`
 
-The error vocabulary every plugin shares — `ItemRepository::save()`
+The error vocabulary every plugin shares: `ItemRepository::save()`
 propagates the code through `ValidationException`, and editor UIs
 can map codes to localised messages without parsing free-text. The
 enum lives at `src/Enum/InputErrorCode.php`; the numeric values are
@@ -233,21 +254,21 @@ enum InputErrorCode: int
 }
 ```
 
-- `EmptyRequired` — empty value on a `required` field. Checked first.
-- `MinLengthExceeded` / `MaxLengthExceeded` — string-length bounds
+- `EmptyRequired`: empty value on a `required` field. Checked first.
+- `MinLengthExceeded` / `MaxLengthExceeded`: string-length bounds
   (`config.minLength` / `config.maxLength`) violated.
-- `WrongValueFormat` — value's shape is wrong: dropdown key not in
+- `WrongValueFormat`: value's shape is wrong: dropdown key not in
   `options`, integer field got a non-numeric string, date string
   doesn't parse. Catch-all for "the input doesn't make sense for
   this type".
-- `ComparisonFailed` — cross-value or range comparison failed
+- `ComparisonFailed`: cross-value or range comparison failed
   (numeric `min`/`max`, password-confirmation mismatch, date
   ordering).
-- `UndefinedCategoryId` — reference-typed field (`filepicker`)
+- `UndefinedCategoryId`: reference-typed field (`filepicker`)
   points at a category that doesn't exist.
 
 If none of these fit your plugin's failure mode, collapse the case
-into `WrongValueFormat` rather than inventing new ones — the shared
+into `WrongValueFormat` rather than inventing new ones. The shared
 vocabulary is what lets host editors map codes to localised messages
 without parsing free-text.
 
@@ -269,13 +290,13 @@ final readonly class RenderContext
 }
 ```
 
-- `$inputName` — what the form-field's `name=""` attribute must be.
+- `$inputName`: what the form-field's `name=""` attribute must be.
   The hosting editor decides this (often `"data[<fieldname>]"`).
-- `$itemId` — `null` for "create" forms, the item id for "edit"
+- `$itemId`: `null` for "create" forms, the item id for "edit"
   forms. Useful for file-typed plugins that need to render an
   existing-attachment list.
 
-The context is deliberately tiny — anything more (CSRF token, asset
+The context is deliberately tiny: anything more (CSRF token, asset
 base URL, current locale) is the *host's* concern. A plugin that
 needs more context should accept it via constructor injection when
 the host registers it.
@@ -293,7 +314,7 @@ what SQLite type the generated column gets if you flip
 |---|---|---|---|
 | `Text` | `TextFieldType` | `Text` | Single-line `<input type="text">`. `config.min`, `config.max`, `config.pattern`. |
 | `LongText` | `LongTextFieldType` | `Text` | `<textarea>`. `config.format` toggles markdown render via `Sanitizer`. |
-| `Editor` | `EditorFieldType` | `Text` | Rich-text — same storage as `LongText`, different render hint for the host editor. |
+| `Editor` | `EditorFieldType` | `Text` | Rich-text: same storage as `LongText`, different render hint for the host editor. |
 | `Slug` | `SlugFieldType` | `Text` | Auto-derives from a source field on the same form; rejects collisions in the host. |
 | `Datepicker` | `DatepickerFieldType` | `Text` | Stores ISO-8601 date strings. |
 | `Dropdown` | `DropdownFieldType` | `Text` | `config.options`, optional `config.multiple` (stores comma-joined / array). |
@@ -309,8 +330,8 @@ what SQLite type the generated column gets if you flip
 | `Imageupload` | `ImageuploadFieldType` | `Text` | Subset of `Fileupload` constrained to image MIMEs; `ImageProcessor` renders on-demand thumbnails. `config.maxWidth`, `config.maxHeight`. |
 
 Each plugin's source file is short (typically 60–120 lines) and is
-the authoritative answer for "what exactly does this type accept?"
-— if a docstring here ever disagrees with the source, the source
+the authoritative answer for "what exactly does this type accept?".
+If a docstring here ever disagrees with the source, the source
 wins.
 
 ---
@@ -337,7 +358,7 @@ final class ColourFieldType implements FieldTypePlugin
     public function validate(mixed $rawValue, Field $field): ValidationResult
     {
         if (! is_string($rawValue) || ! preg_match('/^#[0-9a-f]{6}$/i', $rawValue)) {
-            return ValidationResult::failed(InputErrorCode::PatternMismatch, 'Expected #rrggbb');
+            return ValidationResult::failed(InputErrorCode::WrongValueFormat, 'Expected #rrggbb');
         }
         return ValidationResult::ok(strtolower($rawValue));
     }
@@ -352,7 +373,7 @@ final class ColourFieldType implements FieldTypePlugin
 ```
 
 Register on the container's registry once and the type can be used
-on any new `Field` going forward. There's nothing else to wire — the
+on any new `Field` going forward. There's nothing else to wire: the
 storage layer reads the type's `name()` from `fields.type` and looks
 it up in the registry whenever a value flows through `validate()`.
 

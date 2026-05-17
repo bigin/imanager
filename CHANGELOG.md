@@ -17,8 +17,9 @@ apply pending schema migrations before doing their work.
   but the command opened a raw PDO without running pending
   migrations. The rebuild then fired against the pre-2.2.0 schema
   (`fields.searchable = 0` everywhere) and silently produced an
-  empty/incorrect FTS body for every item. Hit while bumping
-  Scriptor; fixed before reaching the Hetzner demo. (#60)
+  empty/incorrect FTS body for every item. Caught during a
+  downstream lock-bump, before the broken recipe reached
+  production. (#60)
 - **`optimize` now auto-migrates too.** Same surprise was latent:
   running `VACUUM` before migrations wastes cycles because the next
   command applies new tables/columns anyway. (#60)
@@ -34,7 +35,7 @@ apply pending schema migrations before doing their work.
   now applies migration `0005` first, then rebuilds against the
   correct schema.
 - Diagnostic commands (`dump`, `repair`, `schema:status`) are
-  unchanged — they're expected to report on the actual on-disk
+  unchanged. They're expected to report on the actual on-disk
   state, so they must NOT auto-migrate.
 
 ## [2.2.0] — 2026-05-17
@@ -67,18 +68,19 @@ Design spec: [`docs/imanager-2.2-plan.md`](docs/imanager-2.2-plan.md).
 - **Migration `0005_searchable_defaults.sql`.** Promotes existing
   `text`/`longtext`/`editor`/`slug` field rows to `searchable = 1`
   on upgrade so installs keep their existing FTS coverage for
-  prose content. Verified against the live Scriptor schema: all 8
-  text-typed fields (slug, parent, pagetype, menu_title, content,
-  template, role, email) promote; password + fileupload fields
-  stay at 0. (#58)
-- **`FtsBody::compose()`** — single source of truth for the body
+  prose content. Verified against a representative production
+  schema: all text-typed field rows promote; `password` and
+  file-upload field rows stay at 0. (#58)
+- **`FtsBody::compose()`**: single source of truth for the body
   column written into `items_fts`. Used by both the per-save writer
   and the bulk rebuilder so they cannot drift. (#58)
 - **`SqliteItemRepository` constructor accepts optional
   `?FieldRepository`** as the third argument. The 2-arg signature
-  from 2.0/2.1 keeps working — falls back to "index everything"
+  from 2.0/2.1 keeps working: it falls back to "index everything"
   with a one-time `E_USER_DEPRECATED` notice on first FTS write.
   The no-arg form will become an error in 3.0. (#58)
+- **`docs/imanager-2.2-plan.md`**: design plan with the
+  recommended-lean decision log and open-questions register. (#56)
 
 ### Upgrading from 2.1.x
 
@@ -135,36 +137,36 @@ keeps working. Design spec: [`docs/imanager-2.1-plan.md`](docs/imanager-2.1-plan
 
 ### Added
 
-- **16 static factories on `Field`** for declarative schema setup —
+- **16 static factories on `Field`** for declarative schema setup:
   `Field::text()`, `longText()`, `editor()`, `slug()`, `password()`,
   `integer()`, `decimal()`, `money()`, `checkbox()`, `dropdown()`,
   `datepicker()`, `hidden()`, `arrayList()`, `file()`, `image()`,
   `filePicker()`. Each returns a fresh (`id = null`) `Field` with the
   corresponding `FieldType` set and default flags. (#47)
-- **Fluent setters on `Field` — general (6)**: `required(bool=true)`,
+- **General fluent setters on `Field` (6)**: `required(bool=true)`,
   `indexed(bool=true)`, `searchable(bool=true)`, `position(int)`,
   `label(string)`, `config(array)`. Each returns a new
   `final readonly` clone, preserving the value-object semantics. (#47)
-- **Fluent setters on `Field` — type-aware (7)**: `maxLength(int)`,
+- **Type-aware fluent setters on `Field` (7)**: `maxLength(int)`,
   `minLength(int)`, `placeholder(string)`, `maxBytes(int)`,
   `mimes(string ...)`, `options(array)`, `format(string)`. Each writes
   one documented key into `config`; unrecognised keys are silently
   ignored by built-in plugins, so a setter that doesn't apply to a
   given `FieldType` is a no-op. (#47)
-- **`CategoryRepository::ensure(Category): Category`** — upsert by
+- **`CategoryRepository::ensure(Category): Category`**. Upsert by
   natural key (`slug`). Insert-on-miss, return-existing-on-hit.
   Emits `CategoryCreated` only on insert. (#48)
-- **`FieldRepository::ensure(Field): Field`** — upsert by natural key
+- **`FieldRepository::ensure(Field): Field`**. Upsert by natural key
   `(categoryId, name)`. Same semantics as `CategoryRepository::ensure()`.
   Emits `FieldCreated` only on insert. (#48)
-- **`docs/imanager-2.1-plan.md`** — design plan with the full surface
-  + naming rationale + open-questions log. (#46)
+- **`docs/imanager-2.1-plan.md`**: design plan with the full surface,
+  naming rationale, and open-questions log. (#46)
 
 ### Fixed
 
 - **`Imanager::VERSION` is now bumped in lockstep with the git tag.**
   Previously the constant was set to `2.0.0` at 2.0 release and never
-  moved at 2.0.1 or 2.0.2 — `vendor/bin/imanager --version` reported
+  moved at 2.0.1 or 2.0.2, so `vendor/bin/imanager --version` reported
   the wrong value against any newer install. New `ReleaseConsistencyTest`
   asserts the constant matches the top-most `[X.Y.Z]` entry in
   CHANGELOG.md so this can't silently rot again.
@@ -174,8 +176,8 @@ keeps working. Design spec: [`docs/imanager-2.1-plan.md`](docs/imanager-2.1-plan
 `ensure()` is a new interface method on `CategoryRepository` and
 `FieldRepository`. Direct callers of the existing methods need no
 changes. **Third-party implementers** of these interfaces (no known
-implementers in the wild as of this release) need to add `ensure()`
-— the canonical 4-line implementation is documented in the JSDoc
+implementers in the wild as of this release) need to add `ensure()`.
+The canonical 4-line implementation is documented in the JSDoc
 of each interface method.
 
 ## [2.0.2] — 2026-05-16
@@ -188,7 +190,7 @@ of each interface method.
   copy-paste of the README quickstart no longer trips on PDO's
   `unable to open database file` error. Hosts that hand-wire via
   `Imanager\Bootstrap::boot()` keep full control of directory
-  lifecycle — the convenience is specific to the copy-paste factory.
+  lifecycle; the auto-`mkdir` is specific to the copy-paste factory.
   (#40)
 
 ### Fixed
@@ -197,7 +199,7 @@ of each interface method.
   parent directory** and suggests `mkdir -p <dir>` (or bootstrapping
   via `DefaultBootstrap`, which now does that itself) when the
   SQLite open fails because the parent doesn't exist. The previous
-  error surfaced as the raw PDO "unable to open database file" —
+  error surfaced as the raw PDO "unable to open database file",
   opaque even to seasoned PHP devs. (#40)
 
 ### Changed

@@ -41,14 +41,14 @@ What it returns:
 $result = $registry->get(FieldType::Text)->validate('Hello', $field);
 
 $result->isValid;   // bool
-$result->coerced;   // mixed — the storage value, only set on success
-$result->errorCode; // InputErrorCode|null — set on failure
-$result->message;   // string — optional human-readable hint
+$result->coerced;   // mixed: the storage value, only set on success
+$result->errorCode; // InputErrorCode|null: set on failure
+$result->message;   // string: optional human-readable hint
 ```
 
 The success path uses `$result->coerced`; the failure path uses
 `$result->errorCode` and `$result->message`. The shape never holds
-both — it's a discriminated record.
+both: it's a discriminated record.
 
 ### The error codes you'll actually see
 
@@ -65,7 +65,7 @@ Three more exist for custom plugins to use:
 
 | Code | What it's there for |
 |---|---|
-| `MaxLengthExceeded` | The enum case exists, but the built-in text plugins **truncate** silently via the sanitizer rather than failing — by design, so a stray paste doesn't reject the whole form. If you want hard maximum enforcement, write a tiny custom plugin or check the length before calling `validate()`. |
+| `MaxLengthExceeded` | The enum case exists, but the built-in text plugins **truncate** silently via the sanitizer rather than failing. By design, so a stray paste doesn't reject the whole form. If you want hard maximum enforcement, write a tiny custom plugin or check the length before calling `validate()`. |
 | `ComparisonFailed` | Reserved for custom plugins that compare against another field (e.g. password confirmation). |
 | `UndefinedCategoryId` | Reserved for cross-category lookup plugins. |
 
@@ -103,8 +103,8 @@ $items      = $container->get(ItemRepository::class);
 $registry   = $container->get(FieldTypeRegistry::class);
 ```
 
-The new line is `$registry = $container->get(FieldTypeRegistry::class);`
-— that's the door to every plugin's `validate()`.
+The new line is `$registry = $container->get(FieldTypeRegistry::class);`.
+That's the door to every plugin's `validate()`.
 
 ```php
 $contact = $categories->ensure(
@@ -130,7 +130,7 @@ $fields->ensure(
 ```
 
 Four fields, three of them with min-length constraints, one
-(`email`) that *only* uses the built-in Text rules — we'll add the
+(`email`) that *only* uses the built-in Text rules. We'll add the
 email-pattern check at the application level in a moment. (For the
 schema-setup mechanics — `ensure()`, the `Field::*` factories, the
 fluent setters — see the [schema chapter](schema.md).)
@@ -147,18 +147,18 @@ $result = $registry->get($nameField->type)->validate('A', $nameField);
 if ($result->isValid) {
     echo "Coerced: {$result->coerced}\n";
 } else {
-    echo "Failed: {$result->errorCode->name} — {$result->message}\n";
+    echo "Failed: {$result->errorCode->name}: {$result->message}\n";
 }
 ```
 
 For input `'A'` against a `minLength: 2` field, you get:
 
 ```
-Failed: MinLengthExceeded —
+Failed: MinLengthExceeded:
 ```
 
 (`message` is empty because the built-in `TextFieldType` doesn't
-populate it — `errorCode` carries the meaning.)
+populate it; `errorCode` carries the meaning.)
 
 For input `'Alice'`:
 
@@ -210,7 +210,7 @@ function validateForm(
 ```
 
 This is the pattern every iManager-using app reaches for at some
-point — it's worth keeping somewhere reusable in your code. The
+point. It's worth keeping somewhere reusable in your code. The
 [field-types cookbook](../field-types.md#2-the-validation-pipeline)
 shows a slightly more sophisticated variant that also handles
 fields the input doesn't mention.
@@ -250,8 +250,8 @@ Running this prints:
 [message] MinLengthExceeded
 ```
 
-— two clean failures. No partial write, no `try / catch` —
-validation said no, so `save()` was never called.
+Two clean failures, no partial write, no `try / catch`.
+Validation said no, so `save()` was never called.
 
 Fix the input:
 
@@ -270,7 +270,7 @@ $input = [
 
 The contact form passes validation, but `email` is still anything
 the user typed. The built-in `TextFieldType` enforces *length*, not
-*format* — there's no email-pattern check in iManager today. If
+*format*. There's no email-pattern check in iManager today. If
 that matters to you, two options:
 
 ### Option A — check it before calling `validate()`
@@ -336,7 +336,7 @@ return $translator->trans(match ($code) {
 }, ['{label}' => $label]);
 ```
 
-Either way, **don't** show `$code->name` to users — `EmptyRequired`
+Either way, **don't** show `$code->name` to users. `EmptyRequired`
 is for logs, not for a form field tooltip.
 
 ## What just happened, in one paragraph
@@ -350,18 +350,18 @@ on a four-field contact form, watched it reject two fields with
 once the form was clean. You also saw where iManager's typing
 validation ends (everything length / required / format-coerce) and
 where your application layer starts (email-pattern check, business
-rules, cross-field constraints) — with two patterns for closing
+rules, cross-field constraints), with two patterns for closing
 that gap.
 
 ## Reference
 
-- [`docs/api/field-types.md`](../api/field-types.md) — every
+- [`docs/api/field-types.md`](../api/field-types.md), every
   built-in field type's config keys and the error codes its
   `validate()` can emit.
-- [`docs/field-types.md`](../field-types.md) — the cookbook for
+- [`docs/field-types.md`](../field-types.md), the cookbook for
   writing your own `FieldTypePlugin`, including a custom
   `validate()`.
-- [`src/Field/ValidationResult.php`](../../src/Field/ValidationResult.php)
-  — the discriminated record returned by every `validate()`.
-- [`src/Enum/InputErrorCode.php`](../../src/Enum/InputErrorCode.php)
-  — every error code with its stable integer value.
+- [`src/Field/ValidationResult.php`](../../src/Field/ValidationResult.php),
+  the discriminated record returned by every `validate()`.
+- [`src/Enum/InputErrorCode.php`](../../src/Enum/InputErrorCode.php),
+  every error code with its stable integer value.

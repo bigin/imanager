@@ -9,12 +9,12 @@ patterns, rendering, registration, and tests.
 If you only need API signatures, go read the reference. If you're
 writing a new field type, start here.
 
-> **Prerequisites.** You have iManager 2.0 booted via
+> **Prerequisites.** You have iManager 2 booted via
 > `Imanager\DefaultBootstrap::boot()` (see
 > [README §Quickstart](../README.md#quickstart)). You know what a
 > `Category` and a `Field` are (see
 > [API > Domain](api/domain.md)). All examples below are tested
-> against the real plugin contract — copy them, they compile.
+> against the real plugin contract. Copy them, they compile.
 
 ---
 
@@ -108,12 +108,12 @@ sophisticated ones.
    $config = [...$this->defaultConfig(), ...$field->config];
    ```
 
-   Don't read raw `$field->config` keys directly — a missing key
+   Don't read raw `$field->config` keys directly: a missing key
    becomes a silent `null` and surprises someone down the road.
 4. **`validate()` returns a `ValidationResult`, not an exception.**
    Even for catastrophic input. The host wraps the failed result
    in a `ValidationException` (or whatever its own error shape is)
-   before propagating — the repository never sees the result
+   before propagating. The repository never sees the result
    object.
 5. **`render()` must produce HTML safe to drop in any `<form>`.**
    Escape every dynamic value through the injected `Sanitizer`. Do
@@ -125,7 +125,7 @@ sophisticated ones.
 
 `validate()` is the contract every plugin exposes for input
 coercion. **The host calls it; the storage layer does not.**
-`ItemRepository::save()` writes `$item->data` verbatim — it never
+`ItemRepository::save()` writes `$item->data` verbatim. It never
 routes values through the registry. The canonical "save" flow on
 the host side looks like this:
 
@@ -167,7 +167,7 @@ $items->save(new Item(
 ));
 ```
 
-The `null` skip is intentional — `PasswordFieldType::validate()`
+The `null` skip is intentional: `PasswordFieldType::validate()`
 returns `ok(null)` for "leave the existing hash alone", and you
 want that key absent from `$coerced` rather than written as `null`.
 
@@ -177,14 +177,14 @@ skeleton the built-ins use:
 ```php
 public function validate(mixed $rawValue, Field $field): ValidationResult
 {
-    // (1) Empty / null handling — including the required check.
+    // (1) Empty / null handling, including the required check.
     if ($this->isEmpty($rawValue)) {
         return $field->required
             ? ValidationResult::failed(InputErrorCode::EmptyRequired)
             : ValidationResult::ok($this->emptyValue());
     }
 
-    // (2) Format / shape check — refuse early, before coercion swallows.
+    // (2) Format / shape check: refuse early, before coercion swallows.
     if (! $this->looksValid($rawValue)) {
         return ValidationResult::failed(InputErrorCode::WrongValueFormat);
     }
@@ -205,7 +205,7 @@ public function validate(mixed $rawValue, Field $field): ValidationResult
 ### Error codes (`InputErrorCode`)
 
 The shared error vocabulary across all plugins. The numeric values
-are stable — old data that persisted them as integers still rounds
+are stable: old data that persisted them as integers still rounds
 back to the right case.
 
 | Case | When to use |
@@ -218,7 +218,7 @@ back to the right case.
 | `UndefinedCategoryId` | The `filepicker` (or any reference-typed) field targets a category id that doesn't exist. |
 
 If none of these fit the failure your plugin is reporting, look
-twice — most "new" cases collapse into `WrongValueFormat`. Resist
+twice: most "new" cases collapse into `WrongValueFormat`. Resist
 the urge to add more codes; the host editor expects this exact set
 when mapping failures to localised messages.
 
@@ -235,7 +235,7 @@ Three of the built-ins distinguish "empty but allowed" from "absent":
 
 Pick the same rule for your own plugin if "no value" is a real,
 distinguishable state. For string-typed fields the built-ins use
-`''` instead — empty string is the natural absence in SQLite text
+`''` instead: empty string is the natural absence in SQLite text
 storage.
 
 ### What the `Sanitizer` actually does
@@ -248,10 +248,10 @@ relevant calls inside `validate()` are:
 | `$this->sanitizer->text($s, $maxLength)` | Trims, collapses whitespace, truncates to `$maxLength` chars. Used by `TextFieldType`. |
 | `$this->sanitizer->int($value, $min, $max)` | Coerces numeric/bool to int; clamps to `[$min, $max]`. |
 | `$this->sanitizer->entities($s)` | HTML-encodes; **render-time only**, never inside `validate()`. |
-| `$this->sanitizer->markdown($s)` / `->purify($s)` | Markdown render / HTMLPurifier — used by `LongText` / `Editor` plugins. |
+| `$this->sanitizer->markdown($s)` / `->purify($s)` | Markdown render / HTMLPurifier, used by `LongText` / `Editor` plugins. |
 
 If you find yourself reimplementing `htmlspecialchars()` or
-`trim()` inside a plugin, you're skipping the `Sanitizer` — call
+`trim()` inside a plugin, you're skipping the `Sanitizer`. Call
 it instead. It exists so the host can swap the escaping backend
 once and have every plugin pick it up.
 
@@ -260,7 +260,7 @@ once and have every plugin pick it up.
 ## 3. Render patterns
 
 `render()` is the consumer-facing HTML for editing a value. It is
-called only by host editor UIs — your application's read templates
+called only by host editor UIs: your application's read templates
 should pull `$item->data->get($name)` and render their own HTML.
 
 ### Pattern A — simple input element
@@ -284,14 +284,14 @@ Three rules cover 80 % of cases:
   `entities()`.
 - Reflect `$field->required` as the HTML `required` attribute when
   the browser-side enforcement helps.
-- Use named args via `sprintf()` rather than string concatenation —
-  the templates stay legible and the escaping order is unmistakable.
+- Use named args via `sprintf()` rather than string concatenation,
+  so the templates stay legible and the escaping order is unmistakable.
 
 ### Pattern B — collections (dropdown / radio group)
 
 When the choices come from `config`, normalise the array shape
-defensively before iterating — `config` is untyped, and a host
-editor may put junk in there:
+defensively before iterating: `config` is untyped, and a host
+editor may put junk in there.
 
 ```php
 private function options(Field $field): array
@@ -314,8 +314,8 @@ as a starting point for any plugin whose config carries a list.
 
 ### Pattern C — file inputs
 
-If you handle uploads, render a plain HTML file input — the bytes
-themselves flow through `FileStorage`, not through the form value:
+If you handle uploads, render a plain HTML file input: the bytes
+themselves flow through `FileStorage`, not through the form value.
 
 ```php
 return \sprintf(
@@ -334,7 +334,7 @@ JavaScript by field type without parsing class names. The built-in
 
 For complex inputs (rich-text editors, custom date pickers, asset
 pickers) you usually only emit a placeholder element and a hidden
-input — the host editor's JS picks it up by `data-field` and
+input: the host editor's JS picks it up by `data-field` and
 augments it. Keep the placeholder dumb; let the host edit-mode JS
 own the interactive surface.
 
@@ -401,7 +401,7 @@ final readonly class MoneyWithCurrencyFieldType implements FieldTypePlugin
 
     public static function affinity(): SqliteAffinity
     {
-        // JSON blob — not numerically queryable as a hot column.
+        // JSON blob: not numerically queryable as a hot column.
         return SqliteAffinity::Text;
     }
 
@@ -449,7 +449,7 @@ final readonly class MoneyWithCurrencyFieldType implements FieldTypePlugin
         $max = \is_int($config['max']) ? $config['max'] : null;
         $amount = $this->sanitizer->int($rawValue['amount'], $min, $max);
 
-        // Detect a clamp — if the user passed something out of range, fail
+        // Detect a clamp. If the user passed something out of range, fail
         // rather than silently clipping (this is a financial field).
         $raw = (int) $rawValue['amount'];
         if ($min !== null && $raw < $min) {
@@ -504,15 +504,15 @@ this type just like any other:
 ```php
 $fields = $container->get(\Imanager\Storage\FieldRepository::class);
 
-// Custom plugins are addressed by their string name() — the FieldType
-// enum only carries the 16 built-ins. Pass the string through Field::type
-// as if it were an enum case; the SQLite layer doesn't care which.
+// The FieldType enum only carries the 16 built-ins. For a custom
+// plugin, pick the closest-fitting case as a proxy (see the
+// "Storing custom types" callout below for the why).
 $fields->save(new \Imanager\Domain\Field(
     id: null,
     categoryId: $blog->id,
     name: 'price',
     label: 'Price',
-    type: \Imanager\Enum\FieldType::Text, // see "Storing custom types" below
+    type: \Imanager\Enum\FieldType::Text,
     required: true,
     config: ['currencies' => ['EUR', 'USD']],
 ));
@@ -520,7 +520,7 @@ $fields->save(new \Imanager\Domain\Field(
 
 > **Storing custom types.** The `fields.type` column is a TEXT
 > column whose value is the plugin's `name()`. The `FieldType` enum
-> exists for ergonomics on the built-ins — when you create a `Field`
+> exists for ergonomics on the built-ins: when you create a `Field`
 > for a custom type, set `type` to the closest-fitting `FieldType`
 > case (here `Text`) and treat the plugin's string name as
 > authoritative at the validate/render boundary. If you want
@@ -533,7 +533,7 @@ $fields->save(new \Imanager\Domain\Field(
 Real-world money handling needs currency conversion, locale-aware
 display formatting, and zero-decimal-currency support (JPY has no
 minor units, KWD has three). All of that belongs in your domain
-service, not in the field-type plugin — the plugin's job is to
+service, not in the field-type plugin. The plugin's job is to
 **validate and coerce the raw form value into your storage shape**,
 nothing more.
 
@@ -557,7 +557,7 @@ A few details worth knowing:
 
 - **`register()` is idempotent-by-name.** Registering a plugin whose
   `name()` matches an already-registered plugin **overwrites** the
-  earlier one. This is intentional — it's the supported way to swap
+  earlier one. This is intentional: it's the supported way to swap
   a built-in for a customised variant. Just don't do it by accident.
 - **Order matters for `names()`.** `FieldTypeRegistry::names()`
   returns names in registration order. Host editor "type" dropdowns
@@ -588,7 +588,7 @@ $container = DefaultBootstrap::boot(/* … */);
 })();
 ```
 
-Keep this function out of the request hot path — it runs once per
+Keep this function out of the request hot path: it runs once per
 container construction and that's all.
 
 ---
@@ -597,7 +597,7 @@ container construction and that's all.
 
 Unit-test the plugin in isolation against a real `Sanitizer` and a
 hand-built `Field`. The built-in tests under
-`tests/Unit/Field/Types/` are the canonical examples — copy their
+`tests/Unit/Field/Types/` are the canonical examples. Copy their
 shape.
 
 ```php
@@ -678,7 +678,7 @@ Three habits that pay off:
 - **Test through the public methods only.** `validate()` and
   `render()` are your contract; everything else is internal.
 - **Use a real `Sanitizer`, not a mock.** The built-in Sanitizer is
-  a pure-function facade — mocking it hides bugs in escaping that
+  a pure-function facade: mocking it hides bugs in escaping that
   only show up when something special-cases a quote.
 - **Assert on the `errorCode` enum, not the message.** Messages
   drift; codes are the host editor's stable mapping target.
@@ -695,7 +695,7 @@ exercise `ItemRepository::save()` end-to-end. The pattern is in
 ### 7.1 Reading `$field->config` directly
 
 ```php
-// WRONG — silent null if the key is missing
+// WRONG: silent null if the key is missing
 $max = $field->config['maxLength'];
 ```
 
@@ -711,7 +711,7 @@ $max = (int) ($config['maxLength'] ?? 255);
 Don't. The host's "validate then save" loop expects a
 `ValidationResult` it can branch on (success → coerced value into the
 bag, failure → map the `InputErrorCode` to a UI message). An
-exception out of `validate()` breaks that flow — the host has to
+exception out of `validate()` breaks that flow: the host has to
 add a `try/catch` around every plugin call, and your error code
 never reaches the surface.
 
@@ -723,7 +723,7 @@ source of double-escaped values in form output.
 
 ### 7.4 Trusting `$field->required` for "must be present in DB"
 
-`required` is a *plugin-input* flag — it's the signal a plugin's
+`required` is a *plugin-input* flag: it's the signal a plugin's
 `validate()` looks at to decide whether to reject empty raw input.
 It only catches anything when a host actually calls `validate()`.
 It does **not** add a `NOT NULL` constraint to the generated column,
@@ -740,7 +740,7 @@ self::assertNotNull($result, 'validate() must return a ValidationResult');
 ```
 
 Or: just write the tests. The built-ins each ship 8–12 test methods
-covering every branch — that's the bar.
+covering every branch. That's the bar.
 
 ---
 
@@ -748,18 +748,18 @@ covering every branch — that's the bar.
 
 When in doubt, the source is short and well-named:
 
-- `src/Field/Types/TextFieldType.php` — simplest validation +
+- `src/Field/Types/TextFieldType.php`, simplest validation +
   render shape.
-- `src/Field/Types/DropdownFieldType.php` — typed-config list,
+- `src/Field/Types/DropdownFieldType.php`, typed-config list,
   defensive iteration.
-- `src/Field/Types/IntegerFieldType.php` — numeric coercion with
+- `src/Field/Types/IntegerFieldType.php`, numeric coercion with
   clamping vs strict-fail.
-- `src/Field/Types/SlugFieldType.php` — multi-step coercion
+- `src/Field/Types/SlugFieldType.php`, multi-step coercion
   (truncate → slugify → uniqueness suffix).
-- `src/Field/Types/ImageuploadFieldType.php` — file-typed plugin
+- `src/Field/Types/ImageuploadFieldType.php`, file-typed plugin
   surface and `data-field=` rendering for host JS hooks.
-- `src/Field/FieldTypeRegistry.php` — registry mechanics.
-- `src/Field/ValidationResult.php` — the `ok` / `failed` named
+- `src/Field/FieldTypeRegistry.php`, registry mechanics.
+- `src/Field/ValidationResult.php`, the `ok` / `failed` named
   constructors.
 
 The reference page at [API > Field types](api/field-types.md) is

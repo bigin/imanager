@@ -3,7 +3,7 @@
 > **Time budget:** about 30 minutes for a typical install (a handful of
 > categories, a few hundred items, a few MB of assets).
 > **Scope:** this guide covers **data migration** only. iManager 2.0 is a
-> ground-up rewrite — the application code that consumes the library
+> ground-up rewrite: the application code that consumes the library
 > needs separate work (see [README §Quickstart](../README.md#quickstart)
 > for the new API shape).
 
@@ -31,7 +31,7 @@
    until you're ready to switch):
 
    ```bash
-   composer require bigins/imanager:2.0.x-dev
+   composer require bigins/imanager:^2.0
    ```
 
 ---
@@ -59,7 +59,7 @@ Pass the path to `data/` itself (not to `data/datasets/buffers/`) as
 ## Step 2 — Dry run first
 
 A dry run executes the full import inside a transaction and rolls it
-back at the end. No SQLite file is written, no assets are copied —
+back at the end. No SQLite file is written, no assets are copied:
 you only get the report.
 
 ```bash
@@ -80,7 +80,7 @@ Expected output (numbers will differ for your install):
  Upload target: ./data-new/uploads
  Remap fields:  (none)
 
- ! [NOTE] Applied 4 schema migration(s) to target
+ ! [NOTE] Applied 5 schema migration(s) to target
 
  Result
  ------
@@ -103,11 +103,11 @@ Expected output (numbers will differ for your install):
 > [Re-mapping cross-item id references](#re-mapping-cross-item-id-references---remap-fields)
 > below.
 
-**If `Errors > 0`** — read the `Errors` section the CLI prints and fix
+**If `Errors > 0`:** read the `Errors` section the CLI prints and fix
 the source data first. Common causes are listed under
 [Common issues](#common-issues) below.
 
-**If `Warnings > 0`** — read them but they don't block the real run.
+**If `Warnings > 0`:** read them but they don't block the real run.
 
 ---
 
@@ -126,7 +126,7 @@ What happens:
 1. The target SQLite file is created (or opened) and any pending
    schema migrations are applied.
 2. `Imanager\Migration\V1FileParser` reads the legacy `*.php` files
-   using `nikic/php-parser` — the AST is walked for literal values
+   using `nikic/php-parser`. The AST is walked for literal values
    only, so a tampered `var_export` file cannot execute host code.
 3. `Imanager\Migration\JsonV1Importer` walks the buffers in order:
    categories → fields → items. Everything happens inside a single
@@ -144,11 +144,11 @@ errors blocked the import.
 ## Step 4 — Verify
 
 ```bash
-vendor/bin/imanager schema:status --database ./data-new/imanager.db
+vendor/bin/imanager schema:status --db ./data-new/imanager.db
 ```
 
-You should see all four migrations applied: `0001_initial`, `0002_fts`,
-`0003_files`, `0004_files_title`.
+You should see all five migrations applied: `0001_initial`, `0002_fts`,
+`0003_files`, `0004_files_title`, `0005_searchable_defaults`.
 
 Spot-check item counts against the source. A quick way:
 
@@ -171,7 +171,7 @@ iManager 1.x and 2.0 share a name and a problem domain; they share
 work:
 
 - Drop the 1.x `Imanager\…` includes / autoload paths.
-- Boot the new container — typically a single
+- Boot the new container, typically a single
   `Imanager\DefaultBootstrap::boot(…)` call. See
   [README §Quickstart](../README.md#quickstart).
 - Replace 1.x calls (`new Items()`, `getCategories()`, …) with the
@@ -179,7 +179,7 @@ work:
 - If you use the FTS, rebuild the index after the first successful
   boot (`vendor/bin/imanager fts:rebuild`).
 
-The shape of this work is host-specific — what calls you replace,
+The shape of this work is host-specific: what calls you replace,
 in what order, and how you stage the cutover depends on the
 application sitting on top of iManager. The repository / event /
 field-type APIs are stable; the wiring around them is yours to
@@ -189,7 +189,7 @@ design.
 
 ## Re-mapping cross-item id references (`--remap-fields`)
 
-The CLI **renumbers** item IDs as it imports — the new SQLite ID is
+The CLI **renumbers** item IDs as it imports: the new SQLite ID is
 not the same as the 1.x ID. By default, item-id references stored
 inside field values (e.g. a `parent` field whose value is the old
 ID of another item) keep the **old** value after migration, which
@@ -220,7 +220,7 @@ vendor/bin/imanager migrate:from-v1 \
 
 The importer:
 
-1. Imports categories, fields, items as usual — recording the
+1. Imports categories, fields, items as usual, recording the
    per-category `old item id → new item id` map along the way.
 2. After all items are inserted, walks the items in each
    `categorySlug` declared in the config; for each `fieldName`, it
@@ -229,7 +229,7 @@ The importer:
 3. Reports the number of rewrites in the `Remapped` row of the
    final report.
 
-Both passes run inside one SQLite transaction — a failure in the
+Both passes run inside one SQLite transaction: a failure in the
 remap rolls the whole migration back, same as any other import
 error.
 
@@ -237,12 +237,12 @@ error.
 
 The remap pass deliberately preserves:
 
-- **`0` (or `'0'`, or `null`, or `''`)** — the canonical "no
+- **`0` (or `'0'`, or `null`, or `''`):** the canonical "no
   parent / root" sentinel for tree-shaped data.
-- **Non-numeric values** — anything that doesn't coerce to a
+- **Non-numeric values:** anything that doesn't coerce to a
   positive integer is skipped (no false-positives on accidental
   matches).
-- **Already-correct values** — re-running the remap against
+- **Already-correct values:** re-running the remap against
   already-mapped data is a no-op.
 
 ### Dangling references
@@ -251,13 +251,13 @@ If a field value points at an old id that the new database doesn't
 carry (because the referenced item was missing from the source, or
 the source data was inconsistent), the importer **leaves the value
 in place** and adds a warning to the final report. It's an
-informational signal, not a fatal error — the value rounds back to
+informational signal, not a fatal error: the value rounds back to
 the old id, the same shape your data had before.
 
 ### When you don't need this
 
 If your 1.x install has no cross-item id references in any field
-values, the flag is unnecessary — omit it and the second pass is
+values, the flag is unnecessary, omit it and the second pass is
 skipped entirely. Most simple flat-file installs fall into this
 bucket. The remap is a forward-fix for the **tree-shaped /
 relational** subset of 1.x data.
@@ -266,7 +266,7 @@ relational** subset of 1.x data.
 
 ## Rollback
 
-- **After a dry run:** nothing to roll back — the transaction was
+- **After a dry run:** nothing to roll back, the transaction was
   reverted before commit.
 - **After a real run:** the target DB and `--upload-target` directory
   are the only things the migrator created. Delete both and start
@@ -277,20 +277,20 @@ relational** subset of 1.x data.
 
 ## Common issues
 
-- **"Source directory does not exist"** — pass `--source` as the path
+- **"Source directory does not exist":** pass `--source` as the path
   to `data/` itself, not to `data/datasets/buffers/`.
-- **"`--source` is required"** — both `--source` and `--target` are
+- **"`--source` is required":** both `--source` and `--target` are
   mandatory; the CLI fails fast with `INVALID` if either is missing.
-- **GD missing** — without `ext-gd` the import still copies assets,
+- **GD missing:** without `ext-gd` the import still copies assets,
   but on-demand thumbnails won't render on the new install. Install
   `ext-gd` and re-run; thumbnails are generated lazily on first
   request, so there's nothing to "re-import".
 - **Migrating from a partial 1.x install** (e.g. an empty
-  `data/datasets/buffers/items/`) — the importer treats absent files
+  `data/datasets/buffers/items/`): the importer treats absent files
   as "zero items in that category" and continues. The final report
   will show `Categories > 0` with `Items: 0`, which is correct, not
   an error.
-- **Different output target each time** — the CLI is **append-safe**
+- **Different output target each time:** the CLI is **append-safe**
   against an existing 2.0 SQLite file: schema migrations are no-ops
   if applied, and item saves create fresh IDs. Re-running against
   the same target will therefore **duplicate** every item. Always
