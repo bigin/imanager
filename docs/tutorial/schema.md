@@ -11,7 +11,7 @@ write a schema-setup script you can re-run safely.
 A *schema* is `Category` + the `Field`s attached to it. There's no
 DDL to write; you build it by calling the `CategoryRepository` and
 `FieldRepository`. The SQLite tables (`categories`, `fields`,
-`items`) are fixed — what you're declaring is *how the JSON payload
+`items`) are fixed. What you're declaring is *how the JSON payload
 on each item gets typed and indexed*.
 
 That means:
@@ -20,7 +20,7 @@ That means:
   a row to `fields` and (if the field is `indexed`) creates one
   generated column.
 - You can keep two installs schema-compatible just by re-running
-  the same setup script — no migrations file alongside the code.
+  the same setup script; no migrations file alongside the code.
 - The schema lives in your application, not in a separate
   migrations folder. That makes it easy to keep schema setup next
   to the code that uses it.
@@ -48,7 +48,7 @@ iManager ships 16 built-in field types. The cheat sheet:
 | Single uploaded image (with thumbnails) | `FieldType::Imageupload` |
 | Pick from already-uploaded files | `FieldType::Filepicker` |
 
-The picker isn't binding — `Editor` is just `LongText` with an
+The picker isn't binding: `Editor` is just `LongText` with an
 editor `render()`, and `Money` is just `Decimal` with currency
 formatting. If none of the 16 fits, you write a
 [custom plugin](../field-types.md#writing-a-custom-field-type) and
@@ -99,7 +99,7 @@ A real row's `data` column might hold:
 **Why JSON, not one column per field?**
 
 So that adding a field doesn't require an `ALTER TABLE`. iManager
-schemas are user-defined — a host application might add `subtitle`
+schemas are user-defined: a host application might add `subtitle`
 to its `Post` category on Monday and `featured` on Tuesday. With
 JSON storage, each new field is a new key on `data`; the schema
 itself stays a single column. Old items work unchanged (the key is
@@ -135,13 +135,13 @@ ON items(category_id, gen_7_published_at);
 
 Two things to notice:
 
-- **The generated column** (`gen_7_published_at`) is *virtual* —
+- **The generated column** (`gen_7_published_at`) is *virtual*:
   SQLite doesn't store its value, it recomputes
-  `json_extract(data, '$.published_at')` on every read. So the
+  `json_extract(data, '$.published_at')` on every read. The
   storage cost is zero rows wider; it's purely a *naming* of the
   expression.
 - **The index** is on `(category_id, gen_7_published_at)`. So
-  filters scoped to one category (the common case — virtually
+  filters scoped to one category (the common case; virtually
   every query starts with `Query::for($postId)`) hit it directly.
 
 Now the same query becomes:
@@ -152,7 +152,7 @@ WHERE category_id = 7 AND gen_7_published_at < 1700000000;
 ```
 
 …and SQLite uses the B-tree index. A B-tree lookup against a
-sorted index is `O(log n)` — at 50k rows, you touch maybe 17
+sorted index is `O(log n)`. At 50k rows you touch maybe 17
 nodes instead of all 50,000. Latency drops from ~50ms to a
 fraction of a millisecond.
 
@@ -162,8 +162,8 @@ What `indexed` costs:
   For typical CMS write rates (a few writes per minute) this is
   invisible; for high-frequency writes (hundreds per second) it
   shows up.
-- **Storage**: roughly one index entry per row, per indexed field
-  — call it ~30 bytes/row for a small key. Negligible at any
+- **Storage**: roughly one index entry per row, per indexed field,
+  call it ~30 bytes/row for a small key. Negligible at any
   reasonable scale.
 - **Schema cost at field creation**: the `ALTER TABLE` runs once,
   during `$fields->save()`. SQLite handles it in milliseconds.
@@ -177,11 +177,11 @@ SQLite has a second indexing system called FTS5 (Full-Text Search,
 version 5). It's a different beast from B-tree indexes:
 
 - **B-tree**: ordered storage of one value per row. Great for
-  `=`, `<`, `>`, sort. Useless for `"contains the word 'scriptor'
+  `=`, `<`, `>`, sort. Useless for `"contains the word 'introduction'
   anywhere in the article body"`.
 - **FTS5**: an *inverted* index. Tokenizes text into words and
   stores `word → [item ids that contain it]`. Great for word and
-  phrase search, prefix-match (`scripto*`), ranking by relevance,
+  phrase search, prefix-match (`intro*`), ranking by relevance,
   and snippet extraction. Each cost a couple of microseconds to
   evaluate even against millions of items.
 
@@ -214,7 +214,7 @@ foreach ($hits as $hit) {
 ```
 
 …runs `SELECT … FROM items_fts WHERE items_fts MATCH :q ORDER BY
-rank` internally — sub-millisecond on tens of thousands of items.
+rank` internally, sub-millisecond on tens of thousands of items.
 
 **Smart factory defaults (2.2.0+).** Prose-typed factories pick
 sensible defaults so the common case needs no setter call:
@@ -231,15 +231,15 @@ type to find this item* defaults to indexed. Hashes, file paths,
 numeric IDs, and money amounts default out. Override either way:
 
 ```php
-// Make a slug not searchable — it's already in the URL.
+// Make a slug not searchable: it's already in the URL.
 $fields->ensure(Field::slug($post->id, 'slug')->searchable(false));
 
-// Make a numeric SKU searchable — your users will type it.
+// Make a numeric SKU searchable: your users will type it.
 $fields->ensure(Field::integer($product->id, 'sku')->searchable(true));
 ```
 
 `name` and `label` are structural columns on the `items_fts`
-table and are *always* indexed — they live on the item row itself,
+table and are *always* indexed. They live on the item row itself,
 not in `data`, and the `searchable` flag doesn't apply.
 
 What `searchable` costs:
@@ -250,13 +250,13 @@ What `searchable` costs:
   For a 5KB article, this is sub-millisecond; for a 500KB body
   on a write-heavy install, measure first.
 - **Tokenizer trade-offs**: the default `unicode61` tokenizer is
-  language-agnostic — no stemming (`"running"` won't match
+  language-agnostic. No stemming (`"running"` won't match
   `"run"`). If you need stemming, see the `tokenize =` options in
   `docs/api/storage.md`.
 
 Use `searchable` for human-readable prose: **titles**, **bodies**,
-**descriptions**, **comments**. Skip it for opaque identifiers —
-searching for `"550e8400-e29b-41d4-a716"` to find a UUID defeats
+**descriptions**, **comments**. Skip it for opaque identifiers.
+Searching for `"550e8400-e29b-41d4-a716"` to find a UUID defeats
 the tokenizer.
 
 ### A mental model for choosing
@@ -269,7 +269,7 @@ Two yes/no questions, asked per field:
    full-text search?"*
    → if yes, `->searchable()`.
 
-Both, one, or neither — each combination is fine. Most fields end
+Both, one, or neither: each combination is fine. Most fields end
 up with neither flag (display-only); a few have one; the workhorses
 of your app (titles, search-relevant body text) have both.
 
@@ -298,20 +298,13 @@ SQLite install with WAL mode:
 | Filter by `published_at < now` on **100 rows** | ~0.2 ms | ~0.1 ms |
 | Filter by `published_at < now` on **10k rows** | ~12 ms | ~0.15 ms |
 | Filter by `published_at < now` on **100k rows** | ~95 ms | ~0.18 ms |
-| Full-text search on **10k articles** | n/a — would need LIKE `%…%` scan, ~80 ms | ~1.5 ms |
+| Full-text search on **10k articles** | n/a; would need LIKE `%…%` scan, ~80 ms | ~1.5 ms |
 | Full-text search on **100k articles** | not viable (>800 ms) | ~2 ms |
 
-These are typical ballpark numbers — your hardware, schema, and
+These are typical ballpark numbers. Your hardware, schema, and
 query shape will move them. The shape is what matters: **unindexed
 JSON filtering is O(n), indexed access is effectively O(log n)**,
 and the gap widens as your data grows.
-
-Scriptor's `bin/perf-smoke.php` (a sibling-project tool) runs four
-canonical timing checkpoints against the live database, including
-`FullTextSearch::search()`. On the bundled demo dataset (about a
-dozen items) every operation comes in well under 1ms; the value
-of the flags shows up once a real install has a few thousand
-rows.
 
 ### A note on changing flags after the fact
 
@@ -322,7 +315,7 @@ adds the generated column + index right then. The reverse
 (flipping `indexed` off) drops them. That makes flag changes a
 runtime concern: a quick development tweak is one `save()` away,
 but on a production database with millions of rows the `CREATE
-INDEX` takes proportional time. Plan accordingly — adding an
+INDEX` takes proportional time. Plan accordingly. Adding an
 index to a live high-write table is usually done during a low-
 traffic window.
 
@@ -357,7 +350,7 @@ $fields     = $container->get(FieldRepository::class);
 
 Define the category. `CategoryRepository::ensure()` is upsert by
 natural key (`slug`): it inserts when the slug is new and returns
-the existing row when it isn't — re-runs are safe.
+the existing row when it isn't, so re-runs are safe.
 
 ```php
 $post = $categories->ensure(new Category(null, 'Post', 'post'));
@@ -412,13 +405,13 @@ php blog-schema.php
 ```
 
 First run prints `Schema ready for category #1 (Post)`. Second
-run prints the same line — no error, because `ensure()` returns
+run prints the same line, no error, because `ensure()` returns
 the existing row on the hit path.
 
-**Third run after editing a flag** — say you change `->indexed()`
-to `->indexed(false)` and re-run? The flag change is silently
+**Third run after editing a flag.** Say you change `->indexed()`
+to `->indexed(false)` and re-run. The flag change is silently
 ignored: `ensure()` is *insert-on-miss, return-existing-on-hit* by
-design, not *upsert-with-update*. This is deliberate — a stray
+design, not *upsert-with-update*. This is deliberate: a stray
 `->indexed()` flip during schema iteration would otherwise trigger
 an `ALTER TABLE`-equivalent on every request without warning, and
 the same for `->searchable()` triggering a full FTS reindex.
@@ -436,7 +429,7 @@ $fields->save(
 ```
 
 The fluent setters work just as well on a fetched field as on a
-fresh factory output — the existing `id` carries through, and
+fresh factory output. The existing `id` carries through, and
 `save()` does an update.
 
 ## A pattern: keep schema and code together
@@ -463,7 +456,7 @@ $postCategoryId = bootBlog($container);
 $posts = $container->get(ItemRepository::class)->findByCategory($postCategoryId);
 ```
 
-This makes the schema's authority obvious — there's no "wait, where
+This makes the schema's authority obvious. There's no "wait, where
 did the `Post` category get defined?" The trade-off is the cost of
 running the `ensure()` lookups on every request; for a five-field
 schema that's a handful of microseconds and well below noise.
@@ -488,20 +481,20 @@ JSON.
 
 ## Next steps
 
-- **[Validate user input before saving](validation.md)** — `save()`
+- **[Validate user input before saving](validation.md)**: `save()`
   doesn't run your field plugins' `validate()` for you; the next
   chapter shows the canonical loop.
-- **[`docs/query-cookbook.md`](../query-cookbook.md)** — once you
+- **[`docs/query-cookbook.md`](../query-cookbook.md)**: once you
   have items, predicates and pagination are the next thing you'll
   reach for.
 
 ## Reference
 
-- [`docs/api/field-types.md`](../api/field-types.md) — every built-in
+- [`docs/api/field-types.md`](../api/field-types.md), every built-in
   field type's storage shape and config keys.
-- [`docs/api/domain.md`](../api/domain.md) — `Field` flags explained
+- [`docs/api/domain.md`](../api/domain.md), `Field` flags explained
   in the value-object reference.
-- [`docs/api/storage.md`](../api/storage.md#hot-fields--generated-columns)
-  — what `indexed` actually does to the SQL schema.
-- [`docs/field-types.md`](../field-types.md) — the cookbook for
+- [`docs/api/storage.md`](../api/storage.md#hot-fields--generated-columns),
+  what `indexed` actually does to the SQL schema.
+- [`docs/field-types.md`](../field-types.md), the cookbook for
   writing your own field-type plugin.

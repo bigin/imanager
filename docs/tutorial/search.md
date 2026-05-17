@@ -3,7 +3,7 @@
 You'll build a small knowledge base — `Article` items with title,
 body, and tags — then run searches against it. Along the way
 you'll learn the FTS5 query language iManager exposes, how
-`SearchHit` is shaped (it has one surprise — `rank` is negative,
+`SearchHit` is shaped (it has one surprise: `rank` is negative,
 lower is better), how to combine full-text matches with structural
 predicates from `Query`, and what the `rebuild()` operation is for.
 
@@ -85,7 +85,7 @@ Output:
 ```
 
 Two articles match. Notice the **snippet contains `<b>…</b>`
-markers** around matched terms — render it raw in your template, do
+markers** around matched terms. Render it raw in your template, do
 **not** re-escape, or the highlighting disappears. SQLite escapes
 the matched-term content before wrapping it in bold tags, so the
 snippet is safe to drop directly into HTML.
@@ -98,7 +98,7 @@ final readonly class SearchHit
     public int    $itemId;     // the item.id that matched
     public int    $categoryId; // the item.category_id, for filtering on the consumer side
     public string $snippet;    // HTML with <b>…</b> highlighting; render raw
-    public float  $rank;       // FTS5 relevance — negative; closer to zero = more relevant
+    public float  $rank;       // FTS5 relevance: negative; closer to zero = more relevant
 }
 ```
 
@@ -130,7 +130,7 @@ $fts->search('fts5 NOT mysql');
 $fts->search('sqlite AND (fts5 OR fts4)');
 ```
 
-`AND`, `OR`, `NOT` are case-sensitive in FTS5 — lowercase `or`
+`AND`, `OR`, `NOT` are case-sensitive in FTS5. Lowercase `or`
 becomes a literal search for the word "or". Parentheses for
 grouping work as expected.
 
@@ -140,7 +140,7 @@ grouping work as expected.
 $fts->search('"full-text search"');
 ```
 
-Quoted strings match the exact sequence — `"full-text search"`
+Quoted strings match the exact sequence: `"full-text search"`
 won't match `"full search text"`. Use for multi-word terms like
 proper nouns ("Quick Sort", "Donald Knuth") or technical phrases.
 
@@ -152,7 +152,7 @@ $fts->search('index*');
 // (in our seed data: "indexed" in article #2, "index" in article #3)
 ```
 
-The `*` suffix expands at search time — useful for autocomplete or
+The `*` suffix expands at search time, useful for autocomplete or
 when you don't know the exact stem. Note the asterisk only works
 as a **suffix**: `*index` is a parse error in FTS5. There's no
 infix wildcard.
@@ -179,7 +179,7 @@ $fts->search('"full-text" AND (storage OR layer) NOT mysql');
 ```
 
 Production code typically pre-processes the user's raw input
-before handing it to FTS5 — strip unbalanced quotes, escape
+before handing it to FTS5: strip unbalanced quotes, escape
 operator words the user didn't mean as operators, fail soft if
 the resulting expression is malformed. The simplest hardening:
 quote the whole query so it becomes a single phrase:
@@ -194,7 +194,7 @@ against parser errors.
 
 ## Scoping by category
 
-A single search call can be limited to one category — useful when
+A single search call can be limited to one category, useful when
 your install has multiple categories (Articles, Products, Pages)
 but the user is searching from inside one of them:
 
@@ -204,7 +204,7 @@ $hits = $fts->search('storage', categoryId: $article->id);
 
 Without the scope, the same query searches across **every**
 category in the install. The category id ends up as `AND
-i.category_id = :cid` in the underlying SQL — it's a cheap filter,
+i.category_id = :cid` in the underlying SQL: it's a cheap filter,
 not a separate index, but FTS5's intersection logic handles it
 efficiently.
 
@@ -224,7 +224,7 @@ $hits = $fts->search(
 ```
 
 The matching `count()` method returns the total across the whole
-result set — for the "Showing 41-60 of 312" header:
+result set, for the "Showing 41-60 of 312" header:
 
 ```php
 $total = $fts->count($query, categoryId: $article->id);
@@ -237,14 +237,14 @@ $shown = sprintf(
 ```
 
 `count()` ignores the `limit` / `offset` on the corresponding
-`search()` call — it always counts the full match set. So you do
+`search()` call: it always counts the full match set. So you do
 two queries per pagination render: one `search()` for the slice
 and one `count()` for the total.
 
 ## Combining FTS hits with structural predicates
 
 This is where iManager's FTS surface is honestly thin today.
-`search()` returns just the matching `itemId`s + snippets — it
+`search()` returns just the matching `itemId`s + snippets. It
 doesn't take a `Query` object, and `Query` doesn't take a "matches
 FTS query X" predicate. So if you want "all articles matching
 'scriptor' that are also `active = true`", you compose manually:
@@ -256,7 +256,7 @@ use Imanager\Query\Operator;
 $hits = $fts->search('scriptor', categoryId: $article->id, limit: 100);
 $matchedIds = array_map(static fn($hit) => $hit->itemId, $hits);
 
-// Now filter to only the active ones — by re-fetching and checking,
+// Now filter to only the active ones, by re-fetching and checking,
 // since Query has no in-ids predicate today:
 $active = [];
 foreach ($matchedIds as $id) {
@@ -287,11 +287,11 @@ $sql = 'SELECT items_fts.rowid, snippet(items_fts, -1, \'<b>\', \'</b>\', \'…\
 ```
 
 (Where `gen_4_published_at` is the generated column for an indexed
-`published_at` field in category id 4 — see
+`published_at` field in category id 4; see
 [schema.md](schema.md#indexed-true--what-really-happens) for how
 those names get formed.)
 
-**For "FTS over a filtered subset"**: invert the order — get the
+**For "FTS over a filtered subset"**: invert the order. Get the
 filtered ids from `Query` first, then post-filter the FTS hits:
 
 ```php
@@ -307,7 +307,7 @@ $hits = array_filter(
 );
 ```
 
-Neither pattern is elegant — a future iManager release may add
+Neither pattern is elegant. A future iManager release may add
 `Query::matchesFts(string $query)` to bridge the gap. Until then,
 the right choice depends on which side has fewer rows: FTS-first if
 the search terms are selective, predicate-first if the WHERE clause
@@ -332,21 +332,21 @@ foreach ($hits as $hit) {
 
 The two things to remember:
 
-- `$item->name` and `$item->label` come from your data — escape with
+- `$item->name` and `$item->label` come from your data: escape with
   `htmlspecialchars`.
-- `$hit->snippet` is already HTML — render raw. SQLite escapes the
+- `$hit->snippet` is already HTML: render raw. SQLite escapes the
   matched content before wrapping `<b>` tags around it, so this is
   safe.
 
 If you want to swap the highlighting tag (e.g., `<mark>` instead
-of `<b>`), you can't — `FullTextSearch::search()` hard-codes
+of `<b>`), you can't: `FullTextSearch::search()` hard-codes
 `<b>…</b>` in the SQL. The two clean workarounds: a `str_replace`
 in your template layer, or a CSS rule (`p.snippet b { background:
 yellow; font-weight: normal; }`).
 
 ## Rebuilding the index
 
-The FTS index is normally kept in sync transparently — every item
+The FTS index is normally kept in sync transparently: every item
 save writes one row to `items_fts`, every delete removes one. But
 some operations break the invariant and need a manual rebuild:
 
@@ -379,7 +379,7 @@ window.
 As of 2.2.0, FTS body content is exactly *one* function call away
 from the schema:
 
-- `name` and `label` are structural — always indexed regardless
+- `name` and `label` are structural: always indexed regardless
   of any flag.
 - For every other key in `Item::$data`, the value is included in
   the body **iff** the field's `searchable` flag is true.
@@ -389,14 +389,14 @@ from the schema:
   `->searchable(false)` on the fluent chain (see
   [schema.md](schema.md#searchable-true--what-really-happens)).
 
-The same rule applies to per-save `syncFts` and bulk `rebuild()`
-— both call into `FtsBody::compose()` so they cannot drift.
+The same rule applies to per-save `syncFts` and bulk `rebuild()`,
+both call into `FtsBody::compose()` so they cannot drift.
 
 If you migrated from 2.1.x: existing field rows for prose-typed
 content (`text`, `longtext`, `editor`, `slug`) were promoted by
 migration `0005`, so your existing FTS coverage is preserved.
 Pre-existing rows in `items_fts` itself were written under the
-old "index everything" rule though — run `vendor/bin/imanager
+old "index everything" rule though. Run `vendor/bin/imanager
 fts:rebuild` once after upgrade so they line up with the new
 filter.
 
@@ -409,19 +409,14 @@ The orders of magnitude (illustrative):
 | `search('scriptor')` | 1k items | < 1 ms |
 | `search('scriptor')` | 10k items | ~ 1 ms |
 | `search('scriptor')` | 100k items | ~ 2 ms |
-| `count('scriptor')` | any | similar to `search()` — same MATCH |
+| `count('scriptor')` | any | similar to `search()`: same MATCH |
 | `rebuild()` | 1k items | < 200 ms |
 | `rebuild()` | 100k items | low tens of seconds |
 
 FTS5's inverted-index latency stays near-constant as the dataset
-grows — that's the whole point of the index. The expensive
+grows. That's the whole point of the index. The expensive
 operation is `rebuild()`, which is O(n) over all items by design;
 you only run it manually after bulk imports or schema migrations.
-
-For a real measurement, Scriptor's `bin/perf-smoke.php`
-(sibling-project tool) includes `FullTextSearch::search()` as one
-of its four canonical timing checkpoints — the typical install
-comes in well under the budget of 100 ms.
 
 ## What just happened, in one paragraph
 
@@ -434,7 +429,7 @@ column-restricted matches with `name:` / `label:` / `body:`),
 how to scope a search to one category and paginate it with
 `limit`/`offset` + a parallel `count()` for the total, why
 combining FTS hits with `Query` predicates is honestly clunky
-today (no `Query::matchesFts()` bridge — drop to raw SQL or
+today (no `Query::matchesFts()` bridge: drop to raw SQL or
 post-filter manually), and the rebuild operation with its CLI hook
 and the subtle live-sync-vs-rebuild content difference. You also
 saw two snippet-safety reminders: `$hit->snippet` is pre-escaped
@@ -443,18 +438,18 @@ escape them.
 
 ## Reference
 
-- [`src/Search/FullTextSearch.php`](../../src/Search/FullTextSearch.php)
-  — the full two-method API + `rebuild()`.
-- [`src/Search/SearchHit.php`](../../src/Search/SearchHit.php) —
+- [`src/Search/FullTextSearch.php`](../../src/Search/FullTextSearch.php),
+  the full two-method API + `rebuild()`.
+- [`src/Search/SearchHit.php`](../../src/Search/SearchHit.php),
   the result value object with its negative-rank docstring.
-- [`config/schema/0002_fts.sql`](../../config/schema/0002_fts.sql)
-  — the `items_fts` table declaration with the tokenizer choice
+- [`config/schema/0002_fts.sql`](../../config/schema/0002_fts.sql),
+  the `items_fts` table declaration with the tokenizer choice
   (`unicode61 remove_diacritics 2`).
-- [`docs/query-cookbook.md`](../query-cookbook.md) — predicate
+- [`docs/query-cookbook.md`](../query-cookbook.md), predicate
   recipes for the `Query` builder; useful for the structural-half
   of any "FTS + WHERE" search you build.
-- [SQLite FTS5 reference](https://sqlite.org/fts5.html) — the
+- [SQLite FTS5 reference](https://sqlite.org/fts5.html), the
   full FTS5 grammar, ranking model, and tokenizer options.
-- [schema.md → "`searchable: true`"](schema.md#searchable-true--what-really-happens)
-  — the architecture deep-dive on what FTS5 actually is and how
+- [schema.md → "`searchable: true`"](schema.md#searchable-true--what-really-happens),
+  the architecture deep-dive on what FTS5 actually is and how
   iManager wires it.

@@ -1,6 +1,6 @@
 # API Reference
 
-Reference documentation for the iManager 2.0 library — every public class
+Reference documentation for the iManager 2 library. Every public class
 you can wire, extend, or call from a host application.
 
 > **Where to start:** the [README quickstart](../../README.md#quickstart)
@@ -14,22 +14,22 @@ you can wire, extend, or call from a host application.
 ## Core (covered in detail here)
 
 The four pages below cover ~90 % of what host code touches. Read them
-in order if you're new — each one builds on the previous.
+in order if you're new. Each one builds on the previous.
 
-- **[Domain](domain.md)** — `Category`, `Field`, `Item`, `File`,
+- **[Domain](domain.md)**: `Category`, `Field`, `Item`, `File`,
   `FieldValueBag`, and the nine domain events (`*Created`, `*Updated`,
   `*Deleted`). All domain objects are `final readonly`; you mutate by
   saving a new value.
-- **[Storage](storage.md)** — the `Storage` interface and its four
+- **[Storage](storage.md)**: the `Storage` interface and its four
   repositories (`CategoryRepository`, `FieldRepository`,
   `ItemRepository`, `FileRepository`), `SqliteStorage` (the only
   bundled implementation), and the `transactional()` boundary. Also
   covers `SchemaManager` and `Migration`.
-- **[Query](query.md)** — the immutable `Query` builder, the
+- **[Query](query.md)**: the immutable `Query` builder, the
   `Clause` / `Operator` / `OrderBy` / `Direction` value objects,
   `Pagination`, and the `SelectorParser` shorthand
   (`name=Hello*, position>=5`).
-- **[Field types](field-types.md)** — the `FieldTypePlugin`
+- **[Field types](field-types.md)**: the `FieldTypePlugin`
   interface, `FieldTypeRegistry`, the 16 built-in plugins, and the
   `ValidationResult` / `RenderContext` value objects you return /
   receive when writing your own type.
@@ -63,16 +63,16 @@ tells you which source file to read next.
 
 ## Conventions used in this reference
 
-- **`final readonly`** — every domain primitive and most value objects
+- **`final readonly`**: every domain primitive and most value objects
   are immutable. Operations like `withId()`, `withTitle()`, or the
   builder methods on `Query` return a new instance.
-- **Method signatures** are quoted **verbatim** from the source — same
+- **Method signatures** are quoted **verbatim** from the source: same
   parameter names, defaults, and return types. If something looks
   surprising, check the file path at the top of each page; the source
   wins, this doc follows.
 - **Examples** are lifted from the contract tests under
   `tests/Unit/Storage/*Contract.php`. Those tests run against both
-  `SqliteStorage` and the `InMemory` storage shipped for testing — so
+  `SqliteStorage` and the `InMemory` storage shipped for testing, so
   every example you see compiles and is exercised on every CI run.
 - **Exceptions thrown** are listed under each method that can throw.
   Methods without a "Throws" line never throw in normal operation
@@ -85,16 +85,16 @@ tells you which source file to read next.
 The four core pages cover the public API any application boots
 against. Companion guides:
 
-- [`docs/field-types.md`](../field-types.md) — **cookbook** for
+- [`docs/field-types.md`](../field-types.md), the **cookbook** for
   writing custom field types end-to-end (anatomy, validation
   patterns, rendering patterns, registration, testing). The
   reference page [`field-types.md`](field-types.md) is the matching
   index.
-- [`docs/query-cookbook.md`](../query-cookbook.md) — **cookbook**
+- [`docs/query-cookbook.md`](../query-cookbook.md), the **cookbook**
   for the `Query` builder: predicate recipes, pagination flows,
   selector strings, full-text-search hand-off, performance.
   Matching reference page: [`query.md`](query.md).
-- [`docs/deployment.md`](../deployment.md) — **deployment guide**:
+- [`docs/deployment.md`](../deployment.md), the **deployment guide**:
   host requirements, filesystem layout, Caddy / nginx + PHP-FPM
   configs, a production Dockerfile, SQLite at runtime (WAL files,
   backups), scheduled maintenance, logging hookup, production
@@ -102,5 +102,5 @@ against. Companion guides:
 
 The smaller subsystems (Cache, Templating, Http, Events, Validation)
 will get their own reference pages **only if** non-trivial host
-extension is expected — for now their source files are short and
+extension is expected. For now their source files are short and
 documented inline.

@@ -39,14 +39,14 @@ final readonly class Query
 }
 ```
 
-Every method returns a **new** `Query` — the receiver is unchanged.
+Every method returns a **new** `Query`; the receiver is unchanged.
 You can pass the same base query to many call sites and refine each
 independently without worrying about shared state.
 
 ### `inCategory()`
 
 Restricts the result to one category. **A query without
-`inCategory()` searches across all categories** — useful for
+`inCategory()` searches across all categories**. Useful for
 admin-side global searches, dangerous as the default for application
 code. Set it.
 
@@ -55,20 +55,20 @@ code. Set it.
 Adds one predicate. The operator argument accepts either the
 `Operator` enum or a literal string (`'='`, `'!='`, `'>'`, `'<'`,
 `'>='`, `'<='`, `'LIKE'`); the string form coerces to the enum
-internally. Multiple `where()` calls AND together — there is **no
+internally. Multiple `where()` calls AND together; there is **no
 OR**. Build OR-shaped logic with a `SelectorParser` source string or
 union the results of two queries application-side.
 
 The field name can be:
 
-- A *structural column* — `id`, `name`, `label`, `position`,
+- A *structural column*: `id`, `name`, `label`, `position`,
   `active`, `created`, `updated`, `categoryId`.
 - A *field name* declared on the category. Hot (indexed) fields hit
   the generated column; cold fields use `json_extract`.
 
 ### `orderBy()`
 
-Adds one ordering step. Calls compose (left-to-right precedence —
+Adds one ordering step. Calls compose (left-to-right precedence:
 first call wins ties). Direction accepts the `Direction` enum, the
 strings `'asc'` / `'desc'` (case-insensitive), or its constants.
 
@@ -161,7 +161,7 @@ final readonly class OrderBy
 ```
 
 `Query::orderBy()` constructs one of these per call. Multi-column
-ordering is just multiple consecutive `orderBy()` calls — there is no
+ordering is just multiple consecutive `orderBy()` calls; there is no
 "add a tiebreaker" helper because chained calls already read that
 way:
 
@@ -189,7 +189,7 @@ enum Direction: string
 
 `coerce()` accepts the enum or a case-insensitive string and throws
 `\ValueError` on unknown input. `Query::orderBy()` calls it on your
-behalf — you can pass either form.
+behalf; you can pass either form.
 
 ---
 
@@ -263,7 +263,7 @@ selector  := clause (',' clause)*
 clause    := identifier op value
 op        := '>=' | '<=' | '!=' | '=' | '>' | '<'
 identifier := [A-Za-z_][A-Za-z0-9_]*
-value     := bare (no escaping) — leading/trailing whitespace stripped
+value     := bare (no escaping); leading/trailing whitespace stripped
 ```
 
 A literal `%` inside a `value` paired with `=` is treated as a
@@ -277,7 +277,7 @@ A literal `%` inside a `value` paired with `=` is treated as a
 | `categoryId=3, name=foo` | `where('categoryId', '=', 3)->where('name', '=', 'foo')` |
 
 `SelectorParser` does **not** consume `inCategory()`,
-`orderBy()`, `limit()`, or `offset()` — keep those in code. The
+`orderBy()`, `limit()`, or `offset()`; keep those in code. The
 parser exists so you can express filters declaratively (in a config
 file, a URL parameter, an editor preset) without exposing PHP
 construction syntax.
@@ -302,7 +302,7 @@ $query  = $parser->parse('active=1, position>=10')
   defining the schema.
 - **Wildcards in `LIKE`.** A trailing wildcard (`'Hello%'`) can use
   an index. A leading wildcard (`'%Hello'`) cannot and will scan the
-  table — prefer `Imanager\Search\FullTextSearch` for free-text
+  table. Prefer `Imanager\Search\FullTextSearch` for free-text
   prefixes.
 - **`count()` does its own SELECT.** Calling `count()` and `query()`
   is two queries; cache `count()` if you also call `query()` against

@@ -1,6 +1,6 @@
 # The lifecycle of categories, fields, and items
 
-The other foundation chapters focused on **writing** data — schema
+The other foundation chapters focused on **writing** data: schema
 setup, item save, validation. This chapter covers what happens
 afterwards: how to **update** a row, how to **delete** one, what
 cascades automatically, what doesn't, and how to wire up
@@ -27,7 +27,7 @@ Plus the read verbs (`find`, `findBy…`, `findAll`, `query`) that
 return value objects to feed back in.
 
 This chapter is mostly about the second life of those value
-objects — what happens after they exist.
+objects: what happens after they exist.
 
 ## Setup
 
@@ -77,8 +77,8 @@ mutates and removes it.
 
 ### Pattern 1: read, change, save
 
-The most common shape — fetch the existing value object, derive a
-new one with the change you want, write it back:
+The most common shape: fetch the existing value object, derive a
+new one with the change you want, write it back.
 
 ```php
 $existing = $items->find($saved->id);
@@ -115,20 +115,19 @@ $fields->save(
 ```
 
 Each setter returns a new `final readonly Field` with the existing
-`id` preserved — `save()` sees the id and does an update.
+`id` preserved. `save()` sees the id and does an update.
 
 (For `Item`, there's a similar `$item->data->with('key', $value)`
-on the `FieldValueBag` — see [`docs/api/domain.md`](../api/domain.md)
+on the `FieldValueBag`; see [`docs/api/domain.md`](../api/domain.md)
 for the bag's `with()` / `without()` / `merge()` helpers.)
 
 ### Pattern 3: `ensure()` cannot update
 
-`ensure()` is deliberately insert-only on the natural-key path —
-this is the safety promise documented in
-[`docs/imanager-2.1-plan.md`](../imanager-2.1-plan.md): a
-silently-flipped `indexed` flag would trigger an `ALTER TABLE` you
-didn't ask for. So if you want an idempotent setup script that
-*also* applies flag updates on re-run, you compose:
+`ensure()` is deliberately insert-only on the natural-key path.
+This is the safety promise: a silently-flipped `indexed` flag
+would trigger an `ALTER TABLE` you didn't ask for. So if you want
+an idempotent setup script that *also* applies flag updates on
+re-run, you compose:
 
 ```php
 $existing = $fields->findByName($bookmark->id, 'title');
@@ -165,8 +164,8 @@ Same shape for `CategoryUpdated` (`previous`, `current`) and
 
 ## Delete
 
-The interesting work. Deleting in iManager isn't just a SQL DELETE
-— it's a cascade with carefully-ordered events, and a few things
+The interesting work. Deleting in iManager isn't just a SQL DELETE.
+It's a cascade with carefully-ordered events, and a few things
 that **don't** happen automatically that you have to know about.
 
 ### Deleting a category
@@ -179,7 +178,7 @@ What runs, in order:
 
 1. **Lookup**: `find($id)` confirms the row exists; raises
    `NotFoundException` if not (no silent no-op delete).
-2. **`CategoryDeleted` event fires.** Crucially — *before* the SQL
+2. **`CategoryDeleted` event fires.** Crucially, *before* the SQL
    delete, so listeners can still walk into the soon-to-be-gone
    children if they need to. Listeners that need fields / items /
    files for cleanup have one shot here.
@@ -189,8 +188,8 @@ What runs, in order:
    - All `items` rows with `category_id = $id` → gone.
    - All `files` rows referencing those items → gone (transitive
      cascade through `items.id`).
-5. **The category-id index entries and the indexed-field generated
-   columns are NOT cleaned up.** ← see the caveat section below.
+5. **The indexed-field generated columns are NOT cleaned up.**
+   ← see the caveat section below.
 
 ### Deleting a field
 
@@ -206,11 +205,11 @@ What runs:
    recover those by lookup anymore).
 3. `DELETE FROM fields WHERE id = :id`.
 4. **If `$field->indexed === true`**, the matching generated column
-   and its index get dropped — `ALTER TABLE items DROP COLUMN gen_<catId>_<fieldName>` plus the matching `DROP INDEX`. This is the
+   and its index get dropped: `ALTER TABLE items DROP COLUMN gen_<catId>_<fieldName>` plus the matching `DROP INDEX`. This is the
    ONLY path that cleans up generated columns; see the caveat below.
 5. The field's JSON key in existing items' `data` columns is **NOT
    touched**. Item rows still carry `{"title": "..."}` for items
-   created before deletion — there's just no schema entry for it
+   created before deletion. There's just no schema entry for it
    anymore. Items become valid (any key, no validation), the values
    simply orphan.
 
@@ -224,19 +223,19 @@ What runs:
 
 1. Lookup or `NotFoundException`.
 2. **`ItemDeleted` event fires** with the item's `id` and
-   `categoryId` — *before* the SQL DELETE, intentionally, so
+   `categoryId`. *Before* the SQL DELETE, intentionally, so
    listeners can still call `$files->findByItem($id)` to walk
    physical-file metadata before the FK cascade flattens it.
 3. `DELETE FROM items WHERE id = :id`.
-4. `DELETE FROM items_fts WHERE rowid = :id` — keeps the FTS index
+4. `DELETE FROM items_fts WHERE rowid = :id` keeps the FTS index
    in sync.
 5. **SQLite cascade**: all `files` rows for this item → gone.
 
 The deliberate event-before-delete ordering for the `Deleted` events
 is the difference between iManager and a naive ORM: by the time
 your listener runs, the row is still readable. You don't need to
-denormalize "what files did this item have" into the event payload
-— you can just look them up.
+denormalize "what files did this item have" into the event payload;
+you can just look them up.
 
 ## Cascade caveats
 
@@ -250,7 +249,7 @@ iManager calls `IndexedFields::drop()` to remove the generated
 column from the `items` table.
 
 When you delete a *category* via `$categories->delete($id)`, the
-fields are removed via SQLite FK cascade — but that cascade goes
+fields are removed via SQLite FK cascade. But that cascade goes
 straight through the database, not through `SqliteFieldRepository`.
 So `IndexedFields::drop()` is **not invoked**. The generated columns
 sit on the `items` table forever, referencing `data` keys for
@@ -280,7 +279,7 @@ metadata rows → gone. But the **physical bytes on disk** (the
 upload handler) are NOT touched by iManager's storage layer. The
 database happily forgets the metadata; the bytes orphan on disk.
 
-This is by design — iManager doesn't assume the FileStorage backend
+This is by design: iManager doesn't assume the FileStorage backend
 is local-disk; it could be S3, a CDN, a CAS store. Deletion through
 those backends has implementation-specific semantics, so iManager
 delegates the cleanup to a **host-supplied listener** subscribed
@@ -309,8 +308,8 @@ $provider->subscribe(
             try {
                 $storage->delete($file->path);
             } catch (FileStorageException) {
-                // Already gone, or transient I/O failure. Log + move on —
-                // raising here would abort the SQL DELETE that follows the
+                // Already gone, or transient I/O failure. Log + move on.
+                // Raising here would abort the SQL DELETE that follows the
                 // event (see "exceptions" below).
             }
         }
@@ -329,14 +328,14 @@ What this gets you:
   metadata rows go with the item via FK cascade.
 
 The same pattern works for `FieldDeleted` (when you remove a field
-that owned upload-type values) — though the field-delete path is
+that owned upload-type values). The field-delete path is
 less common than item-delete, and the cleanup walk would use
 `FileRepository::findByItemAndField()` on a per-item loop.
 
 ### Exceptions inside listeners
 
 iManager's `SyncEventDispatcher` does **not** swallow listener
-exceptions — they propagate up. For `Deleted` events the dispatch
+exceptions: they propagate up. For `Deleted` events the dispatch
 happens *before* the SQL delete, so a throwing listener leaves the
 row intact in the database. That's a feature, not a bug: a failed
 file cleanup shouldn't be quietly papered over by a successful row
@@ -354,13 +353,13 @@ iManager has no `deleted_at` / `is_deleted` mechanism baked in.
 
 Most reasons to want soft-delete map to one of three patterns:
 
-- **"Hide without removing"** — use the existing `Item::$active`
+- **"Hide without removing"**: use the existing `Item::$active`
   boolean. Default queries can filter for `active = true`; admin
   views can show inactive too. No data loss, no cascade headaches.
-- **"Restore-on-undo"** — keep a separate audit/snapshot table
+- **"Restore-on-undo"**: keep a separate audit/snapshot table
   populated from `ItemUpdated` and `ItemDeleted` listeners. The
   iManager core doesn't enforce a shape; you control it.
-- **"Compliance / retention window"** — a scheduled job runs
+- **"Compliance / retention window"**: a scheduled job runs
   `$items->delete($id)` after the retention period; until then,
   use `active = false`.
 
@@ -372,7 +371,7 @@ paths.
 
 ## What just happened, in one paragraph
 
-You walked through how iManager mutates state — the three repository
+You walked through how iManager mutates state: the three repository
 verbs (`save`, `ensure`, `delete`), the events each emits, and the
 ordering quirks that matter when listeners need to read state
 on the way out. You learned that SQLite FK cascades handle the
@@ -383,19 +382,19 @@ file bytes survive an `ItemDeleted` unless a host listener tears
 them down. You saw the canonical file-cleanup listener using
 `ItemDeleted` + `FileRepository::findByItem` + `FileStorage::delete`,
 and read why iManager has no soft-delete baked in (it doesn't need
-one — `Item::$active` handles the most common cases).
+one; `Item::$active` handles the most common cases).
 
 ## Reference
 
-- [`docs/api/domain.md`](../api/domain.md) — every event with its
+- [`docs/api/domain.md`](../api/domain.md), every event with its
   payload shape (`*Created`, `*Updated`, `*Deleted` × Category /
   Field / Item, plus the marker `DomainEvent` interface).
-- [`docs/api/storage.md`](../api/storage.md) — repository contracts
+- [`docs/api/storage.md`](../api/storage.md), repository contracts
   for `save()`, `ensure()`, `delete()`.
-- [`src/Files/FileStorage.php`](../../src/Files/FileStorage.php) —
+- [`src/Files/FileStorage.php`](../../src/Files/FileStorage.php),
   the file-bytes-backend interface; `LocalFileStorage` is the
   default, swap for S3-shaped backends by registering a different
   binding in your bootstrap.
-- [`src/Events/SyncEventDispatcher.php`](../../src/Events/SyncEventDispatcher.php)
-  — the in-process PSR-14 dispatcher iManager wires by default,
+- [`src/Events/SyncEventDispatcher.php`](../../src/Events/SyncEventDispatcher.php),
+  the in-process PSR-14 dispatcher iManager wires by default,
   with notes on its sync + propagate-exception semantics.

@@ -8,7 +8,7 @@ iManager is a small CMS **framework**, not a CMS application: you embed
 it inside your own PHP app and get a typed domain model, a Repository
 layer over SQLite (JSON columns + FTS5), a Field-Type plugin system,
 file storage with on-demand thumbnails, and a CLI for schema and
-migration ops. Use it under any PHP front-end you like — a hand-rolled
+migration ops. Use it under any PHP front-end you like: a hand-rolled
 admin tool, a flat-file CMS, an internal API, a static-site generator
 that needs a typed content store. iManager has no opinion about how
 your application is shaped.
@@ -17,7 +17,7 @@ your application is shaped.
 
 ## Status
 
-**Stable** — current line **2.0.x** (latest: 2.0.2, 2026-05-16).
+**Stable**. Current line **2.2.x** (latest: 2.2.1, 2026-05-17).
 
 The 1.x line (flat-file, `var_export`-based, embedded library shape)
 stays available for legacy installs; see the
@@ -59,20 +59,18 @@ $categories = $container->get(CategoryRepository::class);
 $fields     = $container->get(FieldRepository::class);
 $items      = $container->get(ItemRepository::class);
 
-// One-time schema setup — run from an installer / migration, not on every
-// request. Repeating these three calls against the same database raises a
-// UNIQUE-constraint error; guard them with findBySlug() / findByName() if
-// you want them to be idempotent.
-$blog = $categories->save(new Category(null, 'Blog', 'blog'));
-$fields->save(new Field(null, $blog->id, 'title', 'Title', FieldType::Text));
-$fields->save(new Field(null, $blog->id, 'body',  'Body',  FieldType::LongText));
+// Schema setup: ensure() is idempotent (insert-on-miss, return-on-hit),
+// so this block is safe to run on every boot.
+$blog = $categories->ensure(new Category(null, 'Blog', 'blog'));
+$fields->ensure(new Field(null, $blog->id, 'title', 'Title', FieldType::Text));
+$fields->ensure(new Field(null, $blog->id, 'body',  'Body',  FieldType::LongText));
 
 // Persist an item.
 $items->save(new Item(
     null,
     $blog->id,
-    'hello-world',     // name  — URL-friendly identifier
-    'Hello, world',    // label — human-readable title
+    'hello-world',     // name:  URL-friendly identifier
+    'Hello, world',    // label: human-readable title
     data: ['title' => 'Hello, world', 'body' => 'First post.'],
 ));
 
@@ -91,7 +89,7 @@ pick up new migrations the same way.
 
 Need a leaner container or want to swap PDO / FileStorage / the
 event dispatcher? Use `Imanager\Bootstrap::boot()` instead and wire
-the parts you want — `DefaultBootstrap` is just a copy-paste-saver
+the parts you want. `DefaultBootstrap` is just a copy-paste-saver
 on top of it.
 
 ---
@@ -100,17 +98,17 @@ on top of it.
 
 iManager models content as four primitives:
 
-- **Category** — a kind of thing (e.g. *Blog*, *Page*, *User*). Each
+- **Category**: a kind of thing (e.g. *Blog*, *Page*, *User*). Each
   category has its own field schema and its own slug.
-- **Field** — a typed column on a category. The built-in field types
+- **Field**: a typed column on a category. The built-in field types
   are: `text`, `longtext`, `editor`, `slug`, `password`, `integer`,
   `decimal`, `money`, `checkbox`, `dropdown`, `datepicker`, `hidden`,
   `array`, `fileupload`, `imageupload`, `filepicker`. Custom types
   register via the `FieldTypePlugin` interface.
-- **Item** — an instance of a category. Field values live in a typed
+- **Item**: an instance of a category. Field values live in a typed
   `FieldValueBag` exposed as `$item->data`; hot fields are also
   promoted to SQLite generated columns for indexable queries.
-- **File** — a binary asset (upload). Files are stored under
+- **File**: a binary asset (upload). Files are stored under
   `<uploadsPath>/<itemId>/<fieldId>/` (the `uploadsPath` you pass to
   `DefaultBootstrap::boot()`), with on-demand thumbnails for image
   uploads under `thumbnail/<W>x<H>_<file>`.
@@ -134,7 +132,7 @@ container (`docker compose run --rm imanager vendor/bin/imanager …`).
 | `schema:migrate` | Apply pending migrations. |
 | `migrate:from-v1`| One-shot import of a 1.x `data/datasets/buffers/` tree. Supports `--dry-run`. |
 | `fts:rebuild`    | Drop & rebuild the FTS5 index from `items`. |
-| `optimize`       | `PRAGMA optimize` + `VACUUM`. |
+| `optimize`       | `PRAGMA optimize`. Add `--vacuum` to also run `VACUUM`. |
 | `repair`         | Integrity checks (orphan items, broken FKs, FTS sync). |
 | `dump`           | Portable SQL dump. |
 
@@ -175,26 +173,23 @@ Available composer scripts:
 
 ## Docs
 
-- **Tutorial**: [`docs/tutorial/`](docs/tutorial/) — task-oriented
+- **Tutorial**: [`docs/tutorial/`](docs/tutorial/), task-oriented
   walkthroughs for newcomers (setup, schema design, validation, …).
   Start here if you just installed the package and want a guided
   path past the Quickstart.
-- **API reference**: [`docs/api/`](docs/api/) — index plus core
+- **API reference**: [`docs/api/`](docs/api/), index plus core
   detail pages for Domain, Storage, Query, and Field types.
-- **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md)
-  — how-to companion to the Field-types reference.
-- **Query cookbook**: [`docs/query-cookbook.md`](docs/query-cookbook.md)
-  — predicate recipes, pagination, selector strings, full-text-search
+- **Field-types cookbook**: [`docs/field-types.md`](docs/field-types.md),
+  how-to companion to the Field-types reference.
+- **Query cookbook**: [`docs/query-cookbook.md`](docs/query-cookbook.md),
+  predicate recipes, pagination, selector strings, full-text-search
   hand-off, performance.
-- **Deployment guide**: [`docs/deployment.md`](docs/deployment.md)
-  — host requirements, webserver + PHP-FPM configs, a production
+- **Deployment guide**: [`docs/deployment.md`](docs/deployment.md),
+  host requirements, webserver + PHP-FPM configs, a production
   Dockerfile, SQLite at runtime, backups, scheduled maintenance.
 - **Migration guide** (1.x → 2.0):
   [`docs/migration-guide.md`](docs/migration-guide.md).
 - **Changelog**: [`CHANGELOG.md`](CHANGELOG.md).
-- **Implementation history** — the multi-phase 1.x → 2.0 rewrite plan,
-  kept for context now that the work is done:
-  [`docs/imanager-2.0-plan.md`](docs/imanager-2.0-plan.md).
 
 ---
 
