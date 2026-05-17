@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] — 2026-05-17
+
+Hotfix for the 2.2.0 upgrade path: `fts:rebuild` and `optimize` now
+apply pending schema migrations before doing their work.
+
+### Fixed
+
+- **`fts:rebuild` now auto-migrates.** The 2.2.0 upgrade recipe said
+  to run `vendor/bin/imanager fts:rebuild` after `composer update`,
+  but the command opened a raw PDO without running pending
+  migrations. The rebuild then fired against the pre-2.2.0 schema
+  (`fields.searchable = 0` everywhere) and silently produced an
+  empty/incorrect FTS body for every item. Hit while bumping
+  Scriptor; fixed before reaching the Hetzner demo. (#60)
+- **`optimize` now auto-migrates too.** Same surprise was latent:
+  running `VACUUM` before migrations wastes cycles because the next
+  command applies new tables/columns anyway. (#60)
+- **`DatabaseFactory::migrateIfNeeded()`** added as the shared
+  primitive. Announces each pending migration on the provided
+  output before applying, so users see what just happened. (#60)
+
+### Notes for upgraders
+
+- Anyone who already ran 2.2.0's recipe verbatim (`fts:rebuild`
+  only) and saw their FTS index go empty: install 2.2.1 and re-run
+  `vendor/bin/imanager fts:rebuild --db=<your.db>`. The command
+  now applies migration `0005` first, then rebuilds against the
+  correct schema.
+- Diagnostic commands (`dump`, `repair`, `schema:status`) are
+  unchanged — they're expected to report on the actual on-disk
+  state, so they must NOT auto-migrate.
+
 ## [2.2.0] — 2026-05-17
 
 The per-field `searchable` flag, present on `Field` since 1.x, was a
@@ -53,8 +85,19 @@ Design spec: [`docs/imanager-2.2-plan.md`](docs/imanager-2.2-plan.md).
 After `composer update`, run:
 
 ```bash
-vendor/bin/imanager fts:rebuild
+vendor/bin/imanager fts:rebuild --db=<your.db>
 ```
+
+> **2.2.1 correction.** As originally written, this command was
+> incomplete: on 2.2.0 the rebuild ran *before* the new migration,
+> so the body column came out empty. Either upgrade to **2.2.1**
+> (where `fts:rebuild` auto-migrates) or run the two steps
+> explicitly on 2.2.0:
+>
+> ```bash
+> vendor/bin/imanager schema:migrate --db=<your.db>
+> vendor/bin/imanager fts:rebuild   --db=<your.db>
+> ```
 
 The migration promotes existing field rows for prose-typed content
 so per-save indexing keeps the same coverage, but pre-existing rows

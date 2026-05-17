@@ -35,8 +35,13 @@ final class FtsRebuildCommand extends Command
         }
 
         $pdo = DatabaseFactory::connect($db);
-        $search = new FullTextSearch($pdo);
 
+        // Apply pending migrations first — rebuilding against a stale
+        // schema (e.g. before 2.2.0's migration 0005 has run) silently
+        // produces an incorrect index.
+        DatabaseFactory::migrateIfNeeded($pdo, $output);
+
+        $search = new FullTextSearch($pdo);
         $search->rebuild();
 
         $stmt = $pdo->query('SELECT COUNT(*) FROM items_fts');

@@ -37,6 +37,11 @@ final class OptimizeCommand extends Command
 
         $pdo = DatabaseFactory::connect($db);
 
+        // Apply pending migrations first — VACUUM rewrites the file, so
+        // running it before migrations would just waste cycles when the
+        // very next command applies new tables/columns.
+        DatabaseFactory::migrateIfNeeded($pdo, $output);
+
         $io->writeln('<info>Running PRAGMA optimize…</info>');
         $pdo->exec('PRAGMA optimize');
 
