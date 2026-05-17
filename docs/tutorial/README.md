@@ -28,11 +28,12 @@ machinery the next one builds on.
 | [Validate user input before saving](validation.md) | The canonical `FieldTypeRegistry::get($type)->validate()` loop, how to collect errors across a whole form, where iManager's contract ends and your application code takes over. | A contact form (name + email + subject + message), validated server-side. |
 | [Mutate and delete data](lifecycle.md) | The three repository verbs (`save`, `ensure`, `delete`), event-firing order, what cascades automatically (and what doesn't — orphan generated columns, surviving file bytes), wiring file cleanup yourself, why iManager has no soft-delete. | A bookmark vault (`Bookmark` category with title, url, cover image). |
 | [Upload files and generate thumbnails](files.md) | The four-part upload pipeline (`UploadedFile`, `UploadConstraints`, `UploadHandler`, `FileStorage`/`FileRepository`), MIME sniffing, the common "constraints in two places" gotcha, lazy thumbnail generation via `ImageProcessor`, swapping the storage backend. | A photo gallery (`Gallery` category with title + image upload). |
+| [Full-text search](search.md) | `FullTextSearch::search()` + `count()` + `rebuild()`, the FTS5 query language (implicit AND, phrases, prefix, boolean, column-restricted), category scoping, pagination, the negative-`rank` quirk on `SearchHit`, why combining FTS hits with `Query` predicates is honestly clunky today, snippet rendering. | A knowledge base (`Article` category with title + body + tags). |
 
-One more chapter — full-text search — lands in a follow-up PR. The
-event-system mechanics are already covered in the lifecycle
-chapter; a dedicated `events.md` may or may not happen depending
-on whether common listener patterns warrant their own walkthrough.
+The event-system mechanics are already covered in the lifecycle
+chapter, so a dedicated `events.md` is **not** planned right now —
+common listener patterns might land later as a small cookbook
+appendix if a real use case asks for it.
 
 ## Going deeper
 
