@@ -20,10 +20,23 @@ use Imanager\Enum\FieldType;
  * + fluent setters over the long named-argument constructor:
  *
  *   Field::text($categoryId, 'title', 'Title')
- *       ->required()->indexed()->searchable()->maxLength(200);
+ *       ->required()->indexed()->maxLength(200);
  *
  * Each setter returns a new `Field` (immutable value-object semantics
  * preserved — no mutable builder, no two-phase init).
+ *
+ * ## Flag semantics
+ *
+ * - `$indexed` — when true, the storage layer creates a SQLite generated
+ *   column over `json_extract(data, '$.<name>')` so equality/range
+ *   predicates on this field avoid a JSON-scan.
+ * - `$searchable` — when true, this field's value is written into the
+ *   `items_fts.body` FTS5 column on every save. False means the value is
+ *   excluded from full-text search. Honored from 2.2.0 onward; the
+ *   factories pick sensible per-type defaults (prose-typed fields default
+ *   to true; passwords, numeric/date/structured/file fields default to
+ *   false). `name` and `label` are structural columns on the FTS table and
+ *   are always indexed regardless of this flag.
  */
 final readonly class Field
 {
@@ -63,87 +76,90 @@ final readonly class Field
 
     // ---------------------------------------------------------------------
     // Static factories — one per FieldType case. All return a fresh
-    // (id = null) Field with default flags + empty config.
+    // (id = null) Field with an empty config and per-type `searchable`
+    // defaults: prose-typed factories (text, longText, editor, slug)
+    // default to searchable:true; everything else defaults to false.
+    // Callers always override with `->searchable(true|false)`.
     // ---------------------------------------------------------------------
 
     public static function text(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Text);
+        return new self(null, $categoryId, $name, $label, FieldType::Text, searchable: true);
     }
 
     public static function longText(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::LongText);
+        return new self(null, $categoryId, $name, $label, FieldType::LongText, searchable: true);
     }
 
     public static function editor(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Editor);
+        return new self(null, $categoryId, $name, $label, FieldType::Editor, searchable: true);
     }
 
     public static function slug(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Slug);
+        return new self(null, $categoryId, $name, $label, FieldType::Slug, searchable: true);
     }
 
     public static function password(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Password);
+        return new self(null, $categoryId, $name, $label, FieldType::Password, searchable: false);
     }
 
     public static function integer(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Integer);
+        return new self(null, $categoryId, $name, $label, FieldType::Integer, searchable: false);
     }
 
     public static function decimal(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Decimal);
+        return new self(null, $categoryId, $name, $label, FieldType::Decimal, searchable: false);
     }
 
     public static function money(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Money);
+        return new self(null, $categoryId, $name, $label, FieldType::Money, searchable: false);
     }
 
     public static function checkbox(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Checkbox);
+        return new self(null, $categoryId, $name, $label, FieldType::Checkbox, searchable: false);
     }
 
     public static function dropdown(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Dropdown);
+        return new self(null, $categoryId, $name, $label, FieldType::Dropdown, searchable: false);
     }
 
     public static function datepicker(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Datepicker);
+        return new self(null, $categoryId, $name, $label, FieldType::Datepicker, searchable: false);
     }
 
     public static function hidden(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Hidden);
+        return new self(null, $categoryId, $name, $label, FieldType::Hidden, searchable: false);
     }
 
     public static function arrayList(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::ArrayList);
+        return new self(null, $categoryId, $name, $label, FieldType::ArrayList, searchable: false);
     }
 
     public static function file(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Fileupload);
+        return new self(null, $categoryId, $name, $label, FieldType::Fileupload, searchable: false);
     }
 
     public static function image(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Imageupload);
+        return new self(null, $categoryId, $name, $label, FieldType::Imageupload, searchable: false);
     }
 
     public static function filePicker(int $categoryId, string $name, ?string $label = null): self
     {
-        return new self(null, $categoryId, $name, $label, FieldType::Filepicker);
+        return new self(null, $categoryId, $name, $label, FieldType::Filepicker, searchable: false);
     }
 
     // ---------------------------------------------------------------------
