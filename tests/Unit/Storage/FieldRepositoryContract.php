@@ -208,20 +208,23 @@ abstract class FieldRepositoryContract extends TestCase
 
     public function testEnsureDoesNotUpdateFlagsOnHit(): void
     {
+        // First insert uses Field::password — flags all default false,
+        // so the "ensure() must not flip flags on hit" invariant reads
+        // cleanly without fighting per-factory searchable defaults.
         $original = $this->storage->fields()->ensure(
-            Field::text($this->categoryId, 'title', 'Title'),
+            Field::password($this->categoryId, 'secret', 'Secret'),
         );
 
         // Caller hands in a different label + flags; ensure() must NOT
         // apply them — switching indexed/searchable silently would be a
         // structural surprise.
         $second = $this->storage->fields()->ensure(
-            Field::text($this->categoryId, 'title', 'Different Label')
+            Field::password($this->categoryId, 'secret', 'Different Label')
                 ->required()->indexed()->searchable()->maxLength(500),
         );
 
         self::assertSame($original->id, $second->id);
-        self::assertSame('Title', $second->label);    // unchanged
+        self::assertSame('Secret', $second->label);   // unchanged
         self::assertFalse($second->required);         // unchanged
         self::assertFalse($second->indexed);          // unchanged
         self::assertFalse($second->searchable);       // unchanged

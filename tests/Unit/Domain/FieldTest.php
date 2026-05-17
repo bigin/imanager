@@ -101,7 +101,8 @@ final class FieldTest extends TestCase
     #[DataProvider('factories')]
     public function testFactoryReturnsFreshFieldOfExpectedType(
         callable $factory,
-        FieldType $expected,
+        FieldType $expectedType,
+        bool $expectedSearchable,
     ): void {
         $f = $factory(7, 'col', 'Column');
 
@@ -109,13 +110,14 @@ final class FieldTest extends TestCase
         self::assertSame(7, $f->categoryId);
         self::assertSame('col', $f->name);
         self::assertSame('Column', $f->label);
-        self::assertSame($expected, $f->type);
+        self::assertSame($expectedType, $f->type);
 
-        // Defaults must be untouched by the factory.
+        // required + indexed always default false from the factory; the
+        // per-type `searchable` default is asserted via the provider.
         self::assertSame(0, $f->position);
         self::assertFalse($f->required);
         self::assertFalse($f->indexed);
-        self::assertFalse($f->searchable);
+        self::assertSame($expectedSearchable, $f->searchable);
         self::assertSame([], $f->config);
         self::assertSame(0, $f->created);
         self::assertSame(0, $f->updated);
@@ -128,26 +130,30 @@ final class FieldTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{0: callable, 1: FieldType}>
+     * Each factory returns its per-type `searchable` default — prose-typed
+     * fields (text, longText, editor, slug) opt INTO the FTS body; every
+     * other type opts OUT. Callers always override via `->searchable()`.
+     *
+     * @return iterable<string, array{0: callable, 1: FieldType, 2: bool}>
      */
     public static function factories(): iterable
     {
-        yield 'text'        => [Field::text(...),        FieldType::Text];
-        yield 'longText'    => [Field::longText(...),    FieldType::LongText];
-        yield 'editor'      => [Field::editor(...),      FieldType::Editor];
-        yield 'slug'        => [Field::slug(...),        FieldType::Slug];
-        yield 'password'    => [Field::password(...),    FieldType::Password];
-        yield 'integer'     => [Field::integer(...),     FieldType::Integer];
-        yield 'decimal'     => [Field::decimal(...),     FieldType::Decimal];
-        yield 'money'       => [Field::money(...),       FieldType::Money];
-        yield 'checkbox'    => [Field::checkbox(...),    FieldType::Checkbox];
-        yield 'dropdown'    => [Field::dropdown(...),    FieldType::Dropdown];
-        yield 'datepicker'  => [Field::datepicker(...),  FieldType::Datepicker];
-        yield 'hidden'      => [Field::hidden(...),      FieldType::Hidden];
-        yield 'arrayList'   => [Field::arrayList(...),   FieldType::ArrayList];
-        yield 'file'        => [Field::file(...),        FieldType::Fileupload];
-        yield 'image'       => [Field::image(...),       FieldType::Imageupload];
-        yield 'filePicker'  => [Field::filePicker(...),  FieldType::Filepicker];
+        yield 'text'        => [Field::text(...),        FieldType::Text,       true];
+        yield 'longText'    => [Field::longText(...),    FieldType::LongText,   true];
+        yield 'editor'      => [Field::editor(...),      FieldType::Editor,     true];
+        yield 'slug'        => [Field::slug(...),        FieldType::Slug,       true];
+        yield 'password'    => [Field::password(...),    FieldType::Password,   false];
+        yield 'integer'     => [Field::integer(...),     FieldType::Integer,    false];
+        yield 'decimal'     => [Field::decimal(...),     FieldType::Decimal,    false];
+        yield 'money'       => [Field::money(...),       FieldType::Money,      false];
+        yield 'checkbox'    => [Field::checkbox(...),    FieldType::Checkbox,   false];
+        yield 'dropdown'    => [Field::dropdown(...),    FieldType::Dropdown,   false];
+        yield 'datepicker'  => [Field::datepicker(...),  FieldType::Datepicker, false];
+        yield 'hidden'      => [Field::hidden(...),      FieldType::Hidden,     false];
+        yield 'arrayList'   => [Field::arrayList(...),   FieldType::ArrayList,  false];
+        yield 'file'        => [Field::file(...),        FieldType::Fileupload, false];
+        yield 'image'       => [Field::image(...),       FieldType::Imageupload, false];
+        yield 'filePicker'  => [Field::filePicker(...),  FieldType::Filepicker, false];
     }
 
     // -----------------------------------------------------------------
@@ -164,8 +170,8 @@ final class FieldTest extends TestCase
         self::assertTrue($on->required);
         self::assertFalse($off->required);
         // The other flags carry over untouched.
-        self::assertFalse($on->indexed);
-        self::assertFalse($on->searchable);
+        self::assertSame($f->indexed, $on->indexed);
+        self::assertSame($f->searchable, $on->searchable);
     }
 
     public function testIndexedFlagFlips(): void
@@ -175,11 +181,19 @@ final class FieldTest extends TestCase
         self::assertFalse($f->indexed(false)->indexed);
     }
 
-    public function testSearchableFlagFlips(): void
+    public function testSearchableFlagFlipsInBothDirections(): void
     {
-        $f = Field::text(1, 'x')->searchable();
-        self::assertTrue($f->searchable);
-        self::assertFalse($f->searchable(false)->searchable);
+        // Field::password() defaults to searchable:false — opt IN, then back OUT.
+        $off = Field::password(1, 'pw');
+        self::assertFalse($off->searchable);
+        self::assertTrue($off->searchable()->searchable);
+        self::assertFalse($off->searchable()->searchable(false)->searchable);
+
+        // Field::text() defaults to searchable:true — opt OUT, then back IN.
+        $on = Field::text(1, 'title');
+        self::assertTrue($on->searchable);
+        self::assertFalse($on->searchable(false)->searchable);
+        self::assertTrue($on->searchable(false)->searchable()->searchable);
     }
 
     public function testPositionSetterReplacesValue(): void
@@ -282,7 +296,10 @@ final class FieldTest extends TestCase
 
     public function testChainedSettersComposeAndReturnNewInstances(): void
     {
-        $original = Field::text(1, 'title');
+        // Use a bare constructor so all flags start false — keeps the
+        // "every setter flips its flag" demonstration independent of
+        // per-factory smart defaults.
+        $original = new Field(null, 1, 'title', null, FieldType::Text);
         $built = $original
             ->required()
             ->indexed()
