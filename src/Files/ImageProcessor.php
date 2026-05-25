@@ -64,12 +64,14 @@ final readonly class ImageProcessor
         try {
             $image = $this->manager->read($sourcePath);
 
-            if ($width > 0 && $height === 0) {
+            // Validation above guarantees both dimensions are >= 0 and at
+            // least one is > 0, so the `=== 0` checks alone pick the
+            // single-axis paths without redundant `> 0` companions.
+            if ($height === 0) {
                 $image = $image->scale(width: $width);
-            } elseif ($height > 0 && $width === 0) {
+            } elseif ($width === 0) {
                 $image = $image->scale(height: $height);
             } else {
-                // Both set — `scaleDown` keeps aspect ratio inside the box.
                 $image = $image->scaleDown(width: $width, height: $height);
             }
 
