@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- **`docs/deployment.md`: nginx `/uploads/` block now recommends
+  `Cache-Control: public, must-revalidate` instead of
+  `public, immutable`.** iManager's FileStorage writes uploads to
+  `var/uploads/<itemId>/<fieldId>/<original-filename>`, so re-
+  uploading a file under the same name keeps the URL stable while
+  the bytes change. `immutable` would let browsers serve the old
+  bytes for up to 30 days; `must-revalidate` keeps the long
+  `expires 30d` but forces an If-None-Match check, which nginx's
+  built-in ETag answers cheaply with 304 when the file is
+  unchanged. Inline comment in the snippet explains the choice.
+  Caddy snippet was already correct (no explicit Cache-Control,
+  default revalidation). No code or behavior change.
+
 ## [2.2.1] — 2026-05-17
 
 Hotfix for the 2.2.0 upgrade path: `fts:rebuild` and `optimize` now

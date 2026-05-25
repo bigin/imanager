@@ -153,11 +153,20 @@ server {
     index index.php;
 
     # Public uploads, served by nginx, no PHP.
+    # `must-revalidate` (not `immutable`): iManager's FileStorage
+    # writes to `var/uploads/<itemId>/<fieldId>/<original-filename>`,
+    # so re-uploading a file under the same name leaves the URL
+    # stable while the bytes change. `must-revalidate` makes the
+    # browser send an If-None-Match for every hit; nginx's built-in
+    # ETag answers 304 when the file on disk is unchanged (cheap,
+    # no transfer) or 200 with the new bytes when it changed.
+    # `immutable` would skip that revalidation and serve a stale
+    # asset for up to 30 days.
     location /uploads/ {
         alias /srv/app/var/uploads/;
         try_files $uri =404;
         expires 30d;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, must-revalidate";
     }
 
     # Defence-in-depth: never serve data/ or cache/.
